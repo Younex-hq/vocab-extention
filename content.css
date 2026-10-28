@@ -1,0 +1,12 @@
+/**
+ * content.css - Reset styles for Vocab & Notes Extension root host
+ */
+#vocab-extension-root {
+  all: initial;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 2147483647;
+}
