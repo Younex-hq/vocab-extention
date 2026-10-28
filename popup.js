@@ -1,6 +1,6 @@
 /**
  * popup.js - Interactive Controller for Vocab & Notes Extension Popup
- * Supports Color categorization, Tagging, Multi-attribute Filtering, and Sorting.
+ * Supports Theme Toggling (Dark/Light), Collapsible Filter Dropdown, and Backup Import/Export.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let cachedWords = [];
   let cachedNotes = [];
   let activeTabUrl = '';
+  let currentTheme = 'light';
 
   // Filter & Sort State
   let searchQuery = '';
@@ -29,6 +30,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   let itemToEdit = null;
   let itemToDelete = null;
 
+  // DOM Elements - Theme
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+
   // DOM Elements - Navigation
   const navBtns = document.querySelectorAll('.nav-btn');
   const viewPanels = document.querySelectorAll('.view-panel');
@@ -43,9 +47,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statWordsPill = document.getElementById('stat-words-pill');
   const statNotesPill = document.getElementById('stat-notes-pill');
 
-  // DOM Elements - Search & Filters
+  // DOM Elements - Search & Collapsible Filters
   const searchInput = document.getElementById('search-input');
   const searchClearBtn = document.getElementById('search-clear-btn');
+  const btnToggleFilters = document.getElementById('btn-toggle-filters');
+  const filterActiveBadge = document.getElementById('filter-active-badge');
+  const filterDropdownPanel = document.getElementById('filter-dropdown-panel');
+  const btnCloseFilterDropdown = document.getElementById('btn-close-filter-dropdown');
+  const btnApplyFilters = document.getElementById('btn-apply-filters');
   const sortSelect = document.getElementById('sort-select');
   const filterColor = document.getElementById('filter-color');
   const filterTag = document.getElementById('filter-tag');
@@ -53,6 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnResetFilters = document.getElementById('btn-reset-filters');
   const filterStatusBar = document.getElementById('filter-status-bar');
   const filterStatusText = document.getElementById('filter-status-text');
+  const btnQuickClearFilters = document.getElementById('btn-quick-clear-filters');
 
   // DOM Elements - Add Word Form
   const formAddWord = document.getElementById('form-add-word');
@@ -73,7 +83,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnCancelAddNote = document.getElementById('btn-cancel-add-note');
   const addNoteColorPicker = document.getElementById('add-note-color-picker');
 
-  // DOM Elements - Export
+  // DOM Elements - Import & Export
+  const importFileInput = document.getElementById('import-file-input');
+  const btnTriggerImport = document.getElementById('btn-trigger-import');
+  const importFeedbackBox = document.getElementById('import-feedback-box');
   const btnExportWordsCsv = document.getElementById('btn-export-words-csv');
   const btnExportWordsJson = document.getElementById('btn-export-words-json');
   const btnExportNotesCsv = document.getElementById('btn-export-notes-csv');
@@ -97,6 +110,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Toast
   const toastContainer = document.getElementById('toast-container');
+
+  // -------------------------------------------------------------
+  // THEME MANAGEMENT (Dark / Light)
+  // -------------------------------------------------------------
+
+  async function initTheme() {
+    try {
+      currentTheme = await VocabStorage.getTheme();
+    } catch {
+      currentTheme = 'light';
+    }
+    applyTheme(currentTheme);
+  }
+
+  function applyTheme(theme) {
+    currentTheme = theme;
+    if (theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      themeToggleBtn.textContent = '☀️';
+      themeToggleBtn.title = 'Switch to Light Mode';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      themeToggleBtn.textContent = '🌙';
+      themeToggleBtn.title = 'Switch to Dark Mode';
+    }
+  }
+
+  themeToggleBtn.addEventListener('click', async () => {
+    const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    applyTheme(nextTheme);
+    await VocabStorage.setTheme(nextTheme);
+  });
 
   // -------------------------------------------------------------
   // COLOR PICKER HELPER
@@ -124,6 +169,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
   // INITIALIZATION
   // -------------------------------------------------------------
+
+  await initTheme();
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -221,9 +268,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     statNotesPill.textContent = `${nCount} note${nCount === 1 ? '' : 's'}`;
   }
 
-  /**
-   * Dynamically populate Tag and Website dropdowns based on the active tab's items
-   */
   function populateDynamicFilters() {
     const activeItems = currentSubTab === 'words' ? cachedWords : cachedNotes;
 
@@ -251,7 +295,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       tagFilter = 'all';
     }
 
-    // Collect Unique Websites / Domains
+    // Collect Unique Websites
     const domainsSet = new Set();
     activeItems.forEach((item) => {
       const domain = VocabStorage.extractDomain(item.sourceUrl);
@@ -275,6 +319,49 @@ document.addEventListener('DOMContentLoaded', async () => {
       filterWebsite.value = 'all';
       websiteFilter = 'all';
     }
+
+    updateFilterButtonBadge();
+  }
+
+  // -------------------------------------------------------------
+  // COLLAPSIBLE FILTER DROPDOWN CONTROLS
+  // -------------------------------------------------------------
+
+  function toggleFilterDropdown() {
+    const isOpen = filterDropdownPanel.style.display !== 'none';
+    if (isOpen) {
+      filterDropdownPanel.style.display = 'none';
+      btnToggleFilters.classList.remove('is-open');
+    } else {
+      filterDropdownPanel.style.display = 'flex';
+      btnToggleFilters.classList.add('is-open');
+    }
+  }
+
+  function closeFilterDropdown() {
+    filterDropdownPanel.style.display = 'none';
+    btnToggleFilters.classList.remove('is-open');
+  }
+
+  btnToggleFilters.addEventListener('click', toggleFilterDropdown);
+  btnCloseFilterDropdown.addEventListener('click', closeFilterDropdown);
+  btnApplyFilters.addEventListener('click', closeFilterDropdown);
+
+  function updateFilterButtonBadge() {
+    let count = 0;
+    if (colorFilter !== 'all') count++;
+    if (tagFilter !== 'all') count++;
+    if (websiteFilter !== 'all') count++;
+    if (sortOrder !== 'date-desc') count++;
+
+    if (count > 0) {
+      filterActiveBadge.textContent = count;
+      filterActiveBadge.style.display = 'inline-block';
+      btnToggleFilters.classList.add('has-filters');
+    } else {
+      filterActiveBadge.style.display = 'none';
+      btnToggleFilters.classList.remove('has-filters');
+    }
   }
 
   // -------------------------------------------------------------
@@ -286,7 +373,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 1. Filter
     let filtered = items.filter((item) => {
-      // Search Query
       if (q) {
         const titleMatch = (type === 'word' ? item.word : item.title).toLowerCase().includes(q);
         const bodyMatch = (type === 'word' ? (item.translation + ' ' + (item.definition || '')) : (item.body || '')).toLowerCase().includes(q);
@@ -294,18 +380,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!titleMatch && !bodyMatch && !tagMatch) return false;
       }
 
-      // Color Filter
       if (colorFilter !== 'all') {
         const itemColor = item.color || 'none';
         if (itemColor !== colorFilter) return false;
       }
 
-      // Tag Filter
       if (tagFilter !== 'all') {
         if (!item.tags || !item.tags.includes(tagFilter)) return false;
       }
 
-      // Website Filter
       if (websiteFilter !== 'all') {
         const domain = VocabStorage.extractDomain(item.sourceUrl);
         if (domain !== websiteFilter) return false;
@@ -397,6 +480,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const filtered = getSortedAndFilteredItems(activeItems, isWordsTab ? 'word' : 'note');
 
     updateFilterStatusBar(activeItems.length, filtered.length);
+    updateFilterButtonBadge();
 
     if (isWordsTab) {
       renderWordsList(filtered);
@@ -417,7 +501,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="empty-state">
             <span class="empty-icon">🔍</span>
             <div class="empty-title">No matching words</div>
-            <div class="empty-desc">No saved words match your search or filter criteria.</div>
+            <div class="empty-desc">No saved words match your current filters.</div>
             <button class="btn btn-secondary" id="empty-reset-filters-btn" style="margin-top: 6px;">Reset Filters</button>
           </div>
         `;
@@ -490,7 +574,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="empty-state">
             <span class="empty-icon">🔍</span>
             <div class="empty-title">No matching notes</div>
-            <div class="empty-desc">No saved notes match your search or filter criteria.</div>
+            <div class="empty-desc">No saved notes match your current filters.</div>
             <button class="btn btn-secondary" id="empty-reset-filters-btn-notes" style="margin-top: 6px;">Reset Filters</button>
           </div>
         `;
@@ -589,7 +673,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     });
 
-    // Clicking a Tag pill filters directly by that tag
+    // Click Tag to Filter
     document.querySelectorAll('.card-tag').forEach((pill) => {
       pill.addEventListener('click', () => {
         const t = pill.dataset.tag;
@@ -661,6 +745,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   btnResetFilters.addEventListener('click', resetAllFilters);
+  btnQuickClearFilters.addEventListener('click', resetAllFilters);
 
   // -------------------------------------------------------------
   // FORM: ADD WORD
@@ -894,6 +979,69 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadAllData();
     showToast('Item deleted');
   });
+
+  // -------------------------------------------------------------
+  // IMPORT FUNCTIONALITY (.json & .csv)
+  // -------------------------------------------------------------
+
+  btnTriggerImport.addEventListener('click', () => {
+    importFileInput.click();
+  });
+
+  importFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    const isJson = fileName.endsWith('.json');
+    const isCsv = fileName.endsWith('.csv');
+
+    if (!isJson && !isCsv) {
+      showImportFeedback('Please select a valid .json or .csv backup file.', 'error');
+      importFileInput.value = '';
+      return;
+    }
+
+    showImportFeedback('Importing data...', 'neutral');
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const fileContent = event.target.result;
+        let result;
+
+        if (isJson) {
+          result = await VocabStorage.importFromJson(fileContent);
+        } else {
+          result = await VocabStorage.importFromCsv(fileContent);
+        }
+
+        const msg = `✓ Successfully imported ${result.wordsImported} words and ${result.notesImported} notes!`;
+        showImportFeedback(msg, 'success');
+        showToast(msg);
+        await loadAllData();
+      } catch (err) {
+        console.error('Import failed:', err);
+        showImportFeedback(`Import error: ${err.message}`, 'error');
+        showToast('Import error: ' + err.message);
+      } finally {
+        importFileInput.value = '';
+      }
+    };
+
+    reader.onerror = () => {
+      showImportFeedback('Failed to read the selected file.', 'error');
+      importFileInput.value = '';
+    };
+
+    reader.readAsText(file);
+  });
+
+  function showImportFeedback(msg, type) {
+    importFeedbackBox.textContent = msg;
+    importFeedbackBox.className = `import-feedback-box ${type}`;
+    importFeedbackBox.style.display = 'block';
+  }
 
   // -------------------------------------------------------------
   // EXPORT ACTIONS

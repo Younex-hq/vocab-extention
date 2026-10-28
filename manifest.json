@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Vocab & Notes - Study Vault",
-  "version": "1.0.0",
-  "description": "Capture vocabulary with translations and definitions, save notes, and export to Anki (.csv) or JSON.",
+  "version": "1.1.0",
+  "description": "Capture vocabulary with translations and definitions, save notes, and export/import to Anki (.csv) or JSON.",
   "permissions": [
     "contextMenus",
     "storage",
+    "unlimitedStorage",
     "activeTab",
     "scripting"
   ],

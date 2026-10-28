@@ -17,9 +17,13 @@
           <span class="brand-subtitle">Language & Study Vault</span>
         </div>
       </div>
-      <div class="header-stats" id="header-stats">
-        <span class="stat-pill" id="stat-words-pill">0 words</span>
-        <span class="stat-pill" id="stat-notes-pill">0 notes</span>
+      <div class="header-right">
+        <div class="header-stats" id="header-stats">
+          <span class="stat-pill" id="stat-words-pill">0 words</span>
+          <span class="stat-pill" id="stat-notes-pill">0 notes</span>
+        </div>
+        <!-- Dark Mode Toggle Button -->
+        <button id="theme-toggle-btn" class="theme-toggle-btn" title="Toggle Dark/Light Mode">🌙</button>
       </div>
     </header>
 
@@ -38,8 +42,8 @@
         <span class="nav-label">Add Note</span>
       </button>
       <button class="nav-btn" id="nav-btn-export" data-view="view-export">
-        <span class="nav-icon">⤓</span>
-        <span class="nav-label">Export</span>
+        <span class="nav-icon">⇄</span>
+        <span class="nav-label">Export / Import</span>
       </button>
     </nav>
 
@@ -63,65 +67,85 @@
           </button>
         </div>
 
-        <!-- Search Bar -->
+        <!-- Search Bar with Collapsible Filters Dropdown Toggle -->
         <div class="search-bar-wrap">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="search-input" class="search-input" placeholder="Search words, translations, notes, tags..." />
-          <button id="search-clear-btn" class="search-clear-btn" title="Clear search">×</button>
+          <div class="search-input-group">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search-input" class="search-input" placeholder="Search words, notes, tags..." />
+            <button id="search-clear-btn" class="search-clear-btn" title="Clear search">×</button>
+          </div>
+          <!-- Toggle Dropdown Button -->
+          <button id="btn-toggle-filters" class="btn-toggle-filters" title="Open Filter & Sort Menu">
+            <span class="filter-btn-icon">⚡</span>
+            <span class="filter-btn-text">Filter</span>
+            <span id="filter-active-badge" class="filter-active-badge" style="display: none;">0</span>
+            <span id="filter-caret" class="filter-caret">▾</span>
+          </button>
         </div>
 
-        <!-- Filter & Sort Toolbar -->
-        <div class="filter-toolbar">
-          <!-- Row 1: Sort & Color -->
-          <div class="filter-row">
-            <div class="filter-group">
-              <label class="filter-label" for="sort-select">Sort:</label>
-              <select id="sort-select" class="filter-select">
-                <option value="date-desc">Newest First (Desc)</option>
-                <option value="date-asc">Oldest First (Asc)</option>
-                <option value="alpha-asc">Alphabetical (A → Z)</option>
-                <option value="alpha-desc">Alphabetical (Z → A)</option>
-              </select>
+        <!-- Collapsible Filter & Sort Dropdown Menu (Takes zero space when closed) -->
+        <div id="filter-dropdown-panel" class="filter-dropdown-panel" style="display: none;">
+          <div class="filter-dropdown-header">
+            <span class="filter-dropdown-title">Sort & Filter Options</span>
+            <button id="btn-close-filter-dropdown" class="filter-dropdown-close" title="Close menu">×</button>
+          </div>
+
+          <div class="filter-dropdown-body">
+            <!-- Row 1: Sort & Color -->
+            <div class="filter-row">
+              <div class="filter-group">
+                <label class="filter-label" for="sort-select">Sort By:</label>
+                <select id="sort-select" class="filter-select">
+                  <option value="date-desc">Newest First (Desc)</option>
+                  <option value="date-asc">Oldest First (Asc)</option>
+                  <option value="alpha-asc">Alphabetical (A → Z)</option>
+                  <option value="alpha-desc">Alphabetical (Z → A)</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label class="filter-label" for="filter-color">Color:</label>
+                <select id="filter-color" class="filter-select">
+                  <option value="all">All Colors</option>
+                  <option value="none">No Color</option>
+                  <option value="blue">Blue</option>
+                  <option value="green">Green</option>
+                  <option value="yellow">Yellow</option>
+                  <option value="red">Red</option>
+                  <option value="purple">Purple</option>
+                  <option value="orange">Orange</option>
+                </select>
+              </div>
             </div>
 
-            <div class="filter-group">
-              <label class="filter-label" for="filter-color">Color:</label>
-              <select id="filter-color" class="filter-select">
-                <option value="all">All Colors</option>
-                <option value="none">No Color</option>
-                <option value="blue">Blue</option>
-                <option value="green">Green</option>
-                <option value="yellow">Yellow</option>
-                <option value="red">Red</option>
-                <option value="purple">Purple</option>
-                <option value="orange">Orange</option>
-              </select>
+            <!-- Row 2: Tag & Website -->
+            <div class="filter-row">
+              <div class="filter-group">
+                <label class="filter-label" for="filter-tag">Tag:</label>
+                <select id="filter-tag" class="filter-select">
+                  <option value="all">All Tags</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label class="filter-label" for="filter-website">Website:</label>
+                <select id="filter-website" class="filter-select">
+                  <option value="all">All Websites</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <!-- Row 2: Tag & Website & Reset -->
-          <div class="filter-row">
-            <div class="filter-group">
-              <label class="filter-label" for="filter-tag">Tag:</label>
-              <select id="filter-tag" class="filter-select">
-                <option value="all">All Tags</option>
-              </select>
-            </div>
-
-            <div class="filter-group">
-              <label class="filter-label" for="filter-website">Website:</label>
-              <select id="filter-website" class="filter-select">
-                <option value="all">All Websites</option>
-              </select>
-            </div>
-
-            <button id="btn-reset-filters" class="btn-reset-filters" title="Reset filters">Reset</button>
+          <div class="filter-dropdown-footer">
+            <button id="btn-reset-filters" class="btn-reset-filters" title="Reset all filters">Reset All</button>
+            <button id="btn-apply-filters" class="btn-apply-filters">Done</button>
           </div>
+        </div>
 
-          <!-- Filter Status Pill -->
-          <div id="filter-status-bar" class="filter-status-bar" style="display: none;">
-            <span id="filter-status-text">Filtered</span>
-          </div>
+        <!-- Filter Status Bar (Shown only when active filters exist) -->
+        <div id="filter-status-bar" class="filter-status-bar" style="display: none;">
+          <span id="filter-status-text">Filtered</span>
+          <button id="btn-quick-clear-filters" class="btn-quick-clear" title="Clear active filters">Clear</button>
         </div>
 
         <!-- Lists Container -->
@@ -254,15 +278,39 @@
       </section>
 
       <!-- ========================================== -->
-      <!-- VIEW 4: EXPORT                             -->
+      <!-- VIEW 4: EXPORT / IMPORT                    -->
       <!-- ========================================== -->
       <section id="view-export" class="view-panel">
         <div class="panel-header">
-          <h2 class="panel-title">Export Your Saves</h2>
-          <p class="panel-subtitle">Export words and notes as .csv or .json for Anki or backups</p>
+          <h2 class="panel-title">Export & Import Saves</h2>
+          <p class="panel-subtitle">Backup, restore, and transfer your vocabulary and notes</p>
         </div>
 
         <div class="export-options-list">
+
+          <!-- SECTION: IMPORT SAVES -->
+          <div class="import-section-card">
+            <div class="import-header">
+              <span class="export-tag all">RESTORE</span>
+              <h3 class="export-card-title">Import Old Saves (.json or .csv)</h3>
+              <p class="export-card-desc">Restore words and notes from a previously exported backup file or Anki CSV spreadsheet. Existing items won't be duplicated.</p>
+            </div>
+
+            <!-- Hidden File Input -->
+            <input type="file" id="import-file-input" accept=".json,.csv" style="display: none;" />
+
+            <div class="import-action-row">
+              <button class="btn btn-primary" id="btn-trigger-import">
+                <span>📂</span> Select Backup File to Import
+              </button>
+            </div>
+
+            <div id="import-feedback-box" class="import-feedback-box" style="display: none;"></div>
+          </div>
+
+          <!-- SECTION: EXPORT SAVES -->
+          <div class="export-subheading">Export Options</div>
+
           <!-- Card: Anki Words CSV -->
           <div class="export-card">
             <div class="export-card-info">
@@ -271,7 +319,7 @@
                 <span class="export-tag anki">Anki Ready</span>
               </div>
               <h3 class="export-card-title">Saved Words (.csv)</h3>
-              <p class="export-card-desc">Formats Word, Translation, Definition, Color, and Tags into clean CSV columns ready for Anki deck import.</p>
+              <p class="export-card-desc">Formatted with Word, Translation, Definition, Color, and Tags for Anki deck import.</p>
             </div>
             <button class="btn btn-secondary export-btn" id="btn-export-words-csv">
               Download .CSV
@@ -283,7 +331,7 @@
             <div class="export-card-info">
               <span class="export-tag json">JSON</span>
               <h3 class="export-card-title">Saved Words (.json)</h3>
-              <p class="export-card-desc">Complete JSON structure of all vocabulary entries with colors, tags, and timestamps.</p>
+              <p class="export-card-desc">Complete JSON structure of all vocabulary entries with colors and tags.</p>
             </div>
             <button class="btn btn-secondary export-btn" id="btn-export-words-json">
               Download .JSON
@@ -295,7 +343,7 @@
             <div class="export-card-info">
               <span class="export-tag csv">CSV</span>
               <h3 class="export-card-title">Saved Notes (.csv)</h3>
-              <p class="export-card-desc">Spreadsheet-compatible table containing note titles, body texts, colors, tags, and sources.</p>
+              <p class="export-card-desc">Spreadsheet table containing note titles, body texts, colors, and sources.</p>
             </div>
             <button class="btn btn-secondary export-btn" id="btn-export-notes-csv">
               Download .CSV

@@ -306,6 +306,88 @@
       color: #94a3b8;
       margin-top: 2px;
     }
+
+    /* Dark Mode In-Page Modal Styles */
+    .vocab-modal.dark {
+      background-color: #0f172a;
+      color: #f8fafc;
+      border-color: #334155;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+    }
+
+    .vocab-modal.dark .vocab-header {
+      background-color: #0f172a;
+      border-bottom-color: #334155;
+    }
+
+    .vocab-modal.dark .vocab-title {
+      color: #f8fafc;
+    }
+
+    .vocab-modal.dark .vocab-badge {
+      background-color: #1e293b;
+      color: #cbd5e1;
+      border-color: #334155;
+    }
+
+    .vocab-modal.dark .vocab-close-btn {
+      color: #94a3b8;
+    }
+
+    .vocab-modal.dark .vocab-close-btn:hover {
+      background-color: #1e293b;
+      color: #f8fafc;
+    }
+
+    .vocab-modal.dark .vocab-label {
+      color: #cbd5e1;
+    }
+
+    .vocab-modal.dark .vocab-input,
+    .vocab-modal.dark .vocab-textarea {
+      background-color: #1e293b;
+      color: #f8fafc;
+      border-color: #475569;
+    }
+
+    .vocab-modal.dark .vocab-input:focus,
+    .vocab-modal.dark .vocab-textarea:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .vocab-modal.dark .vocab-meta-info {
+      background-color: #1e293b;
+      border-color: #334155;
+      color: #94a3b8;
+    }
+
+    .vocab-modal.dark .vocab-footer {
+      background-color: #0b1120;
+      border-top-color: #334155;
+    }
+
+    .vocab-modal.dark .vocab-btn-secondary {
+      background-color: #1e293b;
+      border-color: #475569;
+      color: #e2e8f0;
+    }
+
+    .vocab-modal.dark .vocab-btn-secondary:hover {
+      background-color: #334155;
+    }
+
+    .vocab-modal.dark .vocab-btn-primary {
+      background-color: #3b82f6;
+    }
+
+    .vocab-modal.dark .vocab-btn-primary:hover {
+      background-color: #2563eb;
+    }
+
+    .vocab-modal.dark .vocab-swatch.active {
+      box-shadow: 0 0 0 2px #0f172a, 0 0 0 4px #f8fafc;
+    }
   `;
 
   function initShadowRoot() {
@@ -352,16 +434,17 @@
   /**
    * Modal: Save Word
    */
-  function openSaveWordModal({ word, pageUrl, pageTitle }) {
+  async function openSaveWordModal({ word, pageUrl, pageTitle }) {
     closeModal();
     const shadow = initShadowRoot();
 
     let selectedColor = 'none';
+    const theme = (await VocabStorage.getTheme().catch(() => 'light')) || 'light';
 
     const container = document.createElement('div');
     container.className = 'vocab-backdrop';
     container.innerHTML = `
-      <div class="vocab-modal" style="position: relative;">
+      <div class="vocab-modal ${theme === 'dark' ? 'dark' : ''}" style="position: relative;">
         <div class="vocab-header">
           <div class="vocab-title-wrap">
             <span class="vocab-badge">Vocabulary</span>
@@ -524,16 +607,17 @@
   /**
    * Modal: Save Note
    */
-  function openSaveNoteModal({ title, pageUrl, pageTitle }) {
+  async function openSaveNoteModal({ title, pageUrl, pageTitle }) {
     closeModal();
     const shadow = initShadowRoot();
 
     let selectedColor = 'none';
+    const theme = (await VocabStorage.getTheme().catch(() => 'light')) || 'light';
 
     const container = document.createElement('div');
     container.className = 'vocab-backdrop';
     container.innerHTML = `
-      <div class="vocab-modal" style="position: relative;">
+      <div class="vocab-modal ${theme === 'dark' ? 'dark' : ''}" style="position: relative;">
         <div class="vocab-header">
           <div class="vocab-title-wrap">
             <span class="vocab-badge">Note</span>
