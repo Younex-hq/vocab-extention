@@ -74,9 +74,13 @@
   font-family: var(--font-stack);
 }
 
-body {
+html, body {
   width: 460px;
   height: 600px;
+  min-width: 460px;
+  min-height: 600px;
+  max-width: 460px;
+  max-height: 600px;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;

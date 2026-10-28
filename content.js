@@ -780,24 +780,27 @@
   }
 
   /**
-   * Listen for messages from background script
+   * Listen for messages from background script (cross-browser)
    */
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'OPEN_SAVE_WORD_MODAL') {
-      openSaveWordModal({
-        word: request.word,
-        pageUrl: request.pageUrl,
-        pageTitle: request.pageTitle
-      });
-      sendResponse({ status: 'OK' });
-    } else if (request.action === 'OPEN_SAVE_NOTE_MODAL') {
-      openSaveNoteModal({
-        title: request.title,
-        pageUrl: request.pageUrl,
-        pageTitle: request.pageTitle
-      });
-      sendResponse({ status: 'OK' });
-    }
-    return true;
-  });
+  const extAPI = (typeof browser !== 'undefined' && browser && browser.runtime) ? browser : chrome;
+  if (extAPI && extAPI.runtime && extAPI.runtime.onMessage) {
+    extAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.action === 'OPEN_SAVE_WORD_MODAL') {
+        openSaveWordModal({
+          word: request.word,
+          pageUrl: request.pageUrl,
+          pageTitle: request.pageTitle
+        });
+        sendResponse({ status: 'OK' });
+      } else if (request.action === 'OPEN_SAVE_NOTE_MODAL') {
+        openSaveNoteModal({
+          title: request.title,
+          pageUrl: request.pageUrl,
+          pageTitle: request.pageTitle
+        });
+        sendResponse({ status: 'OK' });
+      }
+      return true;
+    });
+  }
 })();

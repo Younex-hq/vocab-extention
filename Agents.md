@@ -155,6 +155,13 @@ interface NoteItem {
 - Toggle button in header switches `data-theme="dark"` attribute on `document.documentElement`.
 - In-page Shadow DOM modal checks theme before rendering and applies `.dark` styles.
 
+### Cross-Browser Architecture (Chrome & Firefox)
+- **Universal WebExtension Resolver:** Dynamically resolves `browser` (native Gecko API) or `chrome` (Chromium API) across background, content, popup, and storage scripts.
+- **Gecko ID:** Added `browser_specific_settings.gecko.id: "vocab-notes@study-vault.extension"` to `manifest.json`.
+- **Context Menus & Scripting:** Seamlessly accesses `browser.contextMenus || browser.menus` and `browser.scripting` across both engines.
+- **Dual Async Storage:** Checks for native Promise support on `storage.local` with automatic callback fallback.
+- **Popup Sizing:** Added explicit `html, body` min/max dimension constraints for Firefox extension popup sizing.
+
 ---
 
 ## 7. Change Log & Session History
@@ -174,3 +181,19 @@ interface NoteItem {
 - **Dark Mode System:** Added solid dark mode theme (`[data-theme="dark"]`), header toggle button, and dark styling support for in-page Shadow DOM modals.
 - **Unlimited Storage:** Added `"unlimitedStorage"` to `manifest.json`, removing the default 10MB quota and allowing virtually unlimited storage for notes and words.
 - Documented storage capacity and updated `Agents.md`.
+
+### Session 4 (2026-10-28):
+- **Firefox & Chrome Divergence Resolution:**
+  - Resolved the Manifest V3 background discrepancy: Chrome strictly forbids `background.scripts` (showing a yellow warning), while Firefox strictly requires `background.scripts` (throwing a fatal error if only `service_worker` is provided).
+  - Created standalone manifests:
+    - [`manifest.chrome.json`](file:///c:/Users/Younes-Asus/Desktop/vocab-extention/manifest.chrome.json): Dedicated to Chromium (service_worker only, 0 warnings).
+    - [`manifest.firefox.json`](file:///c:/Users/Younes-Asus/Desktop/vocab-extention/manifest.firefox.json): Dedicated to Gecko (background.scripts and gecko ID, 0 errors).
+  - Created zero-dependency [`build.js`](file:///c:/Users/Younes-Asus/Desktop/vocab-extention/build.js) and [`package.json`](file:///c:/Users/Younes-Asus/Desktop/vocab-extention/package.json):
+    - `npm run build`: Generates standalone `dist/chrome/` and `dist/firefox/` simultaneously.
+    - `npm run for:chrome`: Swaps root `manifest.json` to Chrome target.
+    - `npm run for:firefox`: Swaps root `manifest.json` to Firefox target.
+  - Implemented universal API resolver across `storage.js`, `background.js`, `content.js`, and `popup.js` supporting both `browser.*` and `chrome.*` namespaces.
+  - Implemented dual Promise and callback fallbacks for `storage.local.get` / `set` and `contextMenus.removeAll`.
+  - Added Firefox internal page URL handling (`about:`) alongside `chrome://` in tab query routines.
+  - Updated `popup.css` with explicit `html, body` min/max constraints to prevent popup resizing quirks in Firefox.
+  - Updated `README.md` with instructions for both browsers.

@@ -173,11 +173,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initTheme();
 
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.url && !tab.url.startsWith('chrome://')) {
-      activeTabUrl = tab.url;
-      wordSourceUrl.value = activeTabUrl;
-      noteSourceUrl.value = activeTabUrl;
+    const extAPI = (typeof browser !== 'undefined' && browser && browser.tabs) ? browser : chrome;
+    if (extAPI && extAPI.tabs) {
+      let tabs;
+      const res = extAPI.tabs.query({ active: true, currentWindow: true });
+      if (res && typeof res.then === 'function') {
+        tabs = await res;
+      } else {
+        tabs = await new Promise((resolve) => extAPI.tabs.query({ active: true, currentWindow: true }, resolve));
+      }
+      const tab = tabs && tabs[0];
+      if (tab && tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('about:')) {
+        activeTabUrl = tab.url;
+        wordSourceUrl.value = activeTabUrl;
+        noteSourceUrl.value = activeTabUrl;
+      }
     }
   } catch (e) {
     // Non-fatal

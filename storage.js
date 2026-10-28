@@ -55,24 +55,66 @@
   }
 
   /**
-   * Helper to safely interact with chrome.storage.local using Promises
+   * Universal WebExtension API Resolver (Firefox 'browser' or Chromium 'chrome')
+   */
+  function getBrowserAPI() {
+    if (typeof browser !== 'undefined' && browser && browser.storage) return browser;
+    if (typeof chrome !== 'undefined' && chrome && chrome.storage) return chrome;
+    if (typeof globalThis !== 'undefined') {
+      if (globalThis.browser && globalThis.browser.storage) return globalThis.browser;
+      if (globalThis.chrome && globalThis.chrome.storage) return globalThis.chrome;
+    }
+    return null;
+  }
+
+  /**
+   * Helper to safely interact with storage across Chrome and Firefox
    */
   async function getFromStorage(key) {
+    const api = getBrowserAPI();
+    if (!api || !api.storage || !api.storage.local) return undefined;
+
+    // Check for native Promise support (Firefox and modern Chrome)
+    try {
+      const res = api.storage.local.get([key]);
+      if (res && typeof res.then === 'function') {
+        const data = await res;
+        return data ? data[key] : undefined;
+      }
+    } catch (e) {
+      // Fallback to callback if promise fails
+    }
+
+    // Callback fallback
     return new Promise((resolve, reject) => {
-      chrome.storage.local.get([key], (result) => {
-        if (chrome.runtime.lastError) {
-          return reject(chrome.runtime.lastError);
+      api.storage.local.get([key], (result) => {
+        if (api.runtime && api.runtime.lastError) {
+          return reject(api.runtime.lastError);
         }
-        resolve(result[key]);
+        resolve(result ? result[key] : undefined);
       });
     });
   }
 
   async function setInStorage(key, value) {
+    const api = getBrowserAPI();
+    if (!api || !api.storage || !api.storage.local) return;
+
+    // Check for native Promise support
+    try {
+      const res = api.storage.local.set({ [key]: value });
+      if (res && typeof res.then === 'function') {
+        await res;
+        return;
+      }
+    } catch (e) {
+      // Fallback to callback
+    }
+
     return new Promise((resolve, reject) => {
-      chrome.storage.local.set({ [key]: value }, () => {
-        if (chrome.runtime.lastError) {
-          return reject(chrome.runtime.lastError);
+      api.storage.local.set({ [key]: value }, () => {
+        if (api.runtime && api.runtime.lastError) {
+          return reject(api.runtime.lastError);
         }
         resolve();
       });
