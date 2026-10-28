@@ -68,13 +68,13 @@ This refreshes both dedicated folders in `dist/`:
 - **For Google Chrome / Edge / Brave:**
   1. Open `chrome://extensions/` and enable **Developer mode**.
   2. Click **Load unpacked** and select the folder:
-     `vocab-extention/dist/chrome`
+     `vocab-extension/dist/chrome`
   3. Result: **0 errors, 0 warnings!**
 
 - **For Mozilla Firefox:**
   1. Open `about:debugging#/runtime/this-firefox`.
   2. Click **Load Temporary Add-on...** and select:
-     `vocab-extention/dist/firefox/manifest.json`
+     `vocab-extension/dist/firefox/manifest.json`
   3. Result: **0 errors, 0 warnings!**
 
 ---

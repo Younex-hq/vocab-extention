@@ -3,6 +3,7 @@
 A minimalist, high-productivity browser extension (Manifest V3) for saving vocabulary with translations and definitions, clipping notes from web pages, color-coding, tagging, and exporting directly to **Anki** or spreadsheets.
 
 **Works seamlessly in:**
+
 - Google Chrome, and other Chromium browsers (Brave, MS Edge, Opera ...)
 - Mozilla Firefox, and other Firefox browsers (Zen, Tor Browser, Waterfox ...)
 
@@ -67,13 +68,13 @@ This refreshes both dedicated folders in `dist/`:
 - **For Google Chrome / Edge / Brave:**
   1. Open `chrome://extensions/` and enable **Developer mode**.
   2. Click **Load unpacked** and select the folder:
-     `vocab-extention/dist/chrome`
+     `vocab-extension/dist/chrome`
   3. Result: **0 errors, 0 warnings!**
 
 - **For Mozilla Firefox:**
   1. Open `about:debugging#/runtime/this-firefox`.
   2. Click **Load Temporary Add-on...** and select:
-     `vocab-extention/dist/firefox/manifest.json`
+     `vocab-extension/dist/firefox/manifest.json`
   3. Result: **0 errors, 0 warnings!**
 
 ---
@@ -83,13 +84,15 @@ This refreshes both dedicated folders in `dist/`:
 If you prefer loading directly from the project root directory, you can switch the root `manifest.json` on demand. Beware that the committed root `manifest.json` is the **Chrome** variant, so loading the project root in Firefox without running the command below fails with `background.service_worker is currently disabled. Add background.scripts.`
 
 - **For Chrome (Default):**
+
   ```bash
   npm run for:chrome
   ```
-  *(Configures `manifest.json` with `service_worker`, removing the `background.scripts` warning)*
+
+  _(Configures `manifest.json` with `service_worker`, removing the `background.scripts` warning)_
 
 - **For Firefox:**
   ```bash
   npm run for:firefox
   ```
-  *(Configures `manifest.json` with `background.scripts` and gecko ID for Firefox)*
+  _(Configures `manifest.json` with `background.scripts` and gecko ID for Firefox)_

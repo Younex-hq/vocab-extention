@@ -7,6 +7,7 @@ This document serves as the persistent memory, architectural blueprint, and cont
 ## 1. Project Overview
 
 **Vocab & Notes** is a lightweight, minimalist, high-productivity Chrome extension built with Manifest V3. It enables users to:
+
 1. **Save New Words on the Fly:**
    - Select text on any web page -> right-click -> choose **"Save word"**.
    - An isolated in-page modal dialog appears with the selected word prefilled, allowing immediate entry of a **translation**, optional **definition**, **color accent**, and **tags**.
@@ -79,7 +80,7 @@ This document serves as the persistent memory, architectural blueprint, and cont
 ## 4. Project File Structure
 
 ```
-vocab-extention/
+vocab-extension/
 ├── manifest.json        # Chrome Extension Manifest V3 (with unlimitedStorage)
 ├── background.js        # Background service worker (Context Menus & tab dispatch)
 ├── storage.js           # Shared storage layer, RFC 4180 CSV / JSON engine, Importers & Theme
@@ -105,34 +106,36 @@ vocab-extention/
 All data is persisted in `chrome.storage.local`.
 
 ### Word Item Schema
+
 ```typescript
 interface WordItem {
-  id: string;             // e.g. "word_1730150000000_abc12"
-  word: string;           // Selected or manually typed word
-  translation: string;    // Target language translation
-  definition: string;     // Meaning, context, or example sentence
-  color: string;          // 'none' | 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'orange'
-  tags: string[];         // e.g. ["adjective", "b2", "literature"]
-  sourceUrl: string;      // URL of the page where captured
-  sourceTitle: string;    // Page title where captured
-  context: string;        // Optional sentence context
-  createdAt: string;      // ISO 8601 timestamp
-  updatedAt: string;      // ISO 8601 timestamp
+  id: string; // e.g. "word_1730150000000_abc12"
+  word: string; // Selected or manually typed word
+  translation: string; // Target language translation
+  definition: string; // Meaning, context, or example sentence
+  color: string; // 'none' | 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'orange'
+  tags: string[]; // e.g. ["adjective", "b2", "literature"]
+  sourceUrl: string; // URL of the page where captured
+  sourceTitle: string; // Page title where captured
+  context: string; // Optional sentence context
+  createdAt: string; // ISO 8601 timestamp
+  updatedAt: string; // ISO 8601 timestamp
 }
 ```
 
 ### Note Item Schema
+
 ```typescript
 interface NoteItem {
-  id: string;             // e.g. "note_1730150000000_xyz34"
-  title: string;          // Selected text or manual title
-  body: string;           // User written note content
-  color: string;          // 'none' | 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'orange'
-  tags: string[];         // e.g. ["grammar", "french", "study"]
-  sourceUrl: string;      // URL of the page where captured
-  sourceTitle: string;    // Page title
-  createdAt: string;      // ISO 8601 timestamp
-  updatedAt: string;      // ISO 8601 timestamp
+  id: string; // e.g. "note_1730150000000_xyz34"
+  title: string; // Selected text or manual title
+  body: string; // User written note content
+  color: string; // 'none' | 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'orange'
+  tags: string[]; // e.g. ["grammar", "french", "study"]
+  sourceUrl: string; // URL of the page where captured
+  sourceTitle: string; // Page title
+  createdAt: string; // ISO 8601 timestamp
+  updatedAt: string; // ISO 8601 timestamp
 }
 ```
 
@@ -141,21 +144,25 @@ interface NoteItem {
 ## 6. Implementation Details
 
 ### Collapsible Filter & Sort Menu
+
 - Embedded next to the search input via `#btn-toggle-filters`.
 - Contains a dynamic badge displaying active filters count.
 - Expands/collapses the `#filter-dropdown-panel`. When collapsed, it takes 0px vertical height.
 - Contains Sort By, Color filter, Tag filter, Website domain filter, and Reset All button.
 
 ### Import Functionality (`storage.js`)
+
 - `importFromJson(jsonString)`: Supports full backup `{ words, notes }` or plain arrays. De-duplicates entries by matching word + translation or note title + body.
 - `importFromCsv(csvText)`: Uses custom `parseCsv()` compliant with RFC 4180. Detects words vs notes from headers, maps columns, and imports without duplicates.
 
 ### Dark Mode Architecture
+
 - `VocabStorage.getTheme()` / `VocabStorage.setTheme()` reads/writes `'vocab_theme'`.
 - Toggle button in header switches `data-theme="dark"` attribute on `document.documentElement`.
 - In-page Shadow DOM modal checks theme before rendering and applies `.dark` styles.
 
 ### Cross-Browser Architecture (Chrome & Firefox)
+
 - **Universal WebExtension Resolver:** Dynamically resolves `browser` (native Gecko API) or `chrome` (Chromium API) across background, content, popup, and storage scripts.
 - **Gecko ID:** Added `browser_specific_settings.gecko.id: "vocab-notes@study-vault.extension"` to `manifest.json`.
 - **Context Menus & Scripting:** Seamlessly accesses `browser.contextMenus || browser.menus` and `browser.scripting` across both engines.
@@ -167,15 +174,18 @@ interface NoteItem {
 ## 7. Change Log & Session History
 
 ### Session 1 (2026-10-28):
+
 - Created base Manifest V3 extension structure (Context menus, in-page modals, popup with tabs, CSV/JSON export, Agents.md).
 
 ### Session 2 (2026-10-28):
+
 - Added Color categorization (7 solid swatches, card left borders, color dots).
 - Added Tagging support (clean parsing, card tag pills, click-to-filter).
 - Added Sorting engine (Time & Alphabetical, Ascending & Descending).
 - Added Multi-attribute Filtering (Color, Tags, Website domain).
 
 ### Session 3 (2026-10-28):
+
 - **Collapsible Filter & Sort Menu:** Converted filter toolbar into a collapsible dropdown menu triggered by a toggle button with an active filter counter badge.
 - **Import Engine:** Added `importFromJson()` and `importFromCsv()` to restore backups with duplicate prevention.
 - **Dark Mode System:** Added solid dark mode theme (`[data-theme="dark"]`), header toggle button, and dark styling support for in-page Shadow DOM modals.
@@ -183,12 +193,13 @@ interface NoteItem {
 - Documented storage capacity and updated `Agents.md`.
 
 ### Session 4 (2026-10-28):
+
 - **Firefox & Chrome Divergence Resolution:**
   - Resolved the Manifest V3 background discrepancy: Chrome strictly forbids `background.scripts` (showing a yellow warning), while Firefox strictly requires `background.scripts` (throwing a fatal error if only `service_worker` is provided).
   - Created standalone manifests:
-    - [`manifest.chrome.json`](file:///c:/Users/Younes-Asus/Desktop/vocab-extention/manifest.chrome.json): Dedicated to Chromium (service_worker only, 0 warnings).
-    - [`manifest.firefox.json`](file:///c:/Users/Younes-Asus/Desktop/vocab-extention/manifest.firefox.json): Dedicated to Gecko (background.scripts and gecko ID, 0 errors).
-  - Created zero-dependency [`build.js`](file:///c:/Users/Younes-Asus/Desktop/vocab-extention/build.js) and [`package.json`](file:///c:/Users/Younes-Asus/Desktop/vocab-extention/package.json):
+    - [`manifest.chrome.json`](file:///c:/Users/Younes-Asus/Desktop/vocab-extension/manifest.chrome.json): Dedicated to Chromium (service_worker only, 0 warnings).
+    - [`manifest.firefox.json`](file:///c:/Users/Younes-Asus/Desktop/vocab-extension/manifest.firefox.json): Dedicated to Gecko (background.scripts and gecko ID, 0 errors).
+  - Created zero-dependency [`build.js`](file:///c:/Users/Younes-Asus/Desktop/vocab-extension/build.js) and [`package.json`](file:///c:/Users/Younes-Asus/Desktop/vocab-extension/package.json):
     - `npm run build`: Generates standalone `dist/chrome/` and `dist/firefox/` simultaneously.
     - `npm run for:chrome`: Swaps root `manifest.json` to Chrome target.
     - `npm run for:firefox`: Swaps root `manifest.json` to Firefox target.
