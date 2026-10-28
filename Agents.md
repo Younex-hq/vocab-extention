@@ -9,20 +9,23 @@ This document serves as the persistent memory, architectural blueprint, and cont
 **Vocab & Notes** is a lightweight, minimalist, high-productivity Chrome extension built with Manifest V3. It enables users to:
 1. **Save New Words on the Fly:**
    - Select text on any web page -> right-click -> choose **"Save word"**.
-   - An isolated in-page modal dialog appears with the selected word prefilled, allowing immediate entry of a **translation** and optional **definition**.
-   - Alternatively, open the extension popup and click the **"Add Word"** button to add words manually.
+   - An isolated in-page modal dialog appears with the selected word prefilled, allowing immediate entry of a **translation**, optional **definition**, **color accent**, and **tags**.
+   - Alternatively, open the extension popup and click the **"Add Word"** button to add words manually with color and tags.
 2. **Save Notes:**
    - Select text on any web page -> right-click -> choose **"Save as note"**.
-   - An in-page modal appears with the selected text prefilled as the **Title**, allowing entry of the note **Body**.
-   - Alternatively, open the extension popup and click the **"Add Note"** button to add notes manually.
+   - An in-page modal appears with the selected text prefilled as the **Title**, allowing entry of the note **Body**, **color accent**, and **tags**.
+   - Alternatively, open the extension popup and click the **"Add Note"** button to record notes manually.
 3. **Browse & Manage Saves ("See Saves"):**
    - Click the extension icon and navigate to **"See Saves"**.
    - Two distinct tabs: **Words** and **Notes** with dynamic badge counts.
-   - Real-time search across words, translations, definitions, titles, and body texts.
+   - Real-time search across words, translations, definitions, titles, body texts, and tags.
+   - **Multi-attribute Sorting:** Newest First, Oldest First, Alphabetical (A → Z), Alphabetical (Z → A).
+   - **Multi-attribute Filtering:** Filter by Color, filter by dynamic Tags, filter by origin Website.
+   - Color indicator dots and left borders on cards. Clickable tag pills that instantly filter by that tag.
    - Inline edit and delete capabilities for all saved entries.
-   - Direct clickable links back to the original source web pages.
+   - Direct clickable links back to original source web pages.
 4. **Export for Study & Anki:**
-   - Export Words as **Anki-ready CSV** (`Word,Translation,Definition,SourceUrl,CreatedAt`) formatted with RFC 4180 escaping.
+   - Export Words as **Anki-ready CSV** (`Word,Translation,Definition,Color,Tags,SourceUrl,CreatedAt`) formatted with RFC 4180 escaping.
    - Export Words as structured **JSON**.
    - Export Notes as **CSV** or **JSON**.
    - Export **Full Vault Backup (JSON)** containing all words and notes combined.
@@ -33,7 +36,7 @@ This document serves as the persistent memory, architectural blueprint, and cont
 ## 2. Design System & Constraints
 
 - **Design Philosophy:** Minimalist modern, prioritizing functionality, speed, and clarity.
-- **Rule:** **No gradient colors.** Only solid, curated neutral tones and crisp borders.
+- **Rule:** **No gradient colors.** Only solid, curated neutral tones, solid accent swatches, and crisp borders.
 - **Color Palette:**
   - Primary Background: `#ffffff`
   - Secondary Background: `#f8fafc`
@@ -45,6 +48,14 @@ This document serves as the persistent memory, architectural blueprint, and cont
   - Accent Solid: `#2563eb` (Blue 600), Hover: `#1d4ed8`
   - Accent Light: `#eff6ff` (Blue 50), Border: `#bfdbfe`
   - Danger Solid: `#dc2626` (Red 600), Hover: `#b91c1c`
+- **Solid Swatches for Categorization:**
+  - `none`: `#94a3b8` (Slate / Default)
+  - `blue`: `#2563eb` (Solid Blue)
+  - `green`: `#16a34a` (Solid Green)
+  - `yellow`: `#d97706` (Solid Amber)
+  - `red`: `#dc2626` (Solid Red)
+  - `purple`: `#9333ea` (Solid Purple)
+  - `orange`: `#ea580c` (Solid Orange)
 - **Typography:** System font stack (`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`).
 - **Isolation:** Shadow DOM used for all in-page content script modals to prevent any host page CSS from colliding with the extension UI.
 
@@ -57,11 +68,11 @@ vocab-extention/
 ├── manifest.json        # Chrome Extension Manifest V3 configuration
 ├── background.js        # Background service worker (Context Menus & tab dispatch)
 ├── storage.js           # Shared storage layer & RFC 4180 CSV / JSON export engine
-├── content.js           # In-page Shadow DOM modal for right-click word/note saving
+├── content.js           # In-page Shadow DOM modal for right-click word/note saving (with colors & tags)
 ├── content.css          # Fallback / host element style reset
-├── popup.html           # Main extension popup HTML structure
-├── popup.css            # Minimalist modern styling (zero gradients)
-├── popup.js             # Extension popup UI logic, views, tabs, search, and exports
+├── popup.html           # Main extension popup HTML structure (filters, sorting, colors, tags)
+├── popup.css            # Minimalist modern styling (zero gradients, color swatches, tag pills)
+├── popup.js             # Extension popup controller with multi-factor sorting and filtering
 ├── icons/
 │   ├── icon16.png       # 16x16 extension icon
 │   ├── icon32.png       # 32x32 extension icon
@@ -85,6 +96,8 @@ interface WordItem {
   word: string;           // Selected or manually typed word
   translation: string;    // Target language translation
   definition: string;     // Meaning, context, or example sentence
+  color: string;          // 'none' | 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'orange'
+  tags: string[];         // e.g. ["adjective", "b2", "literature"]
   sourceUrl: string;      // URL of the page where captured
   sourceTitle: string;    // Page title where captured
   context: string;        // Optional sentence context
@@ -99,6 +112,8 @@ interface NoteItem {
   id: string;             // e.g. "note_1730150000000_xyz34"
   title: string;          // Selected text or manual title
   body: string;           // User written note content
+  color: string;          // 'none' | 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'orange'
+  tags: string[];         // e.g. ["grammar", "french", "study"]
   sourceUrl: string;      // URL of the page where captured
   sourceTitle: string;    // Page title
   createdAt: string;      // ISO 8601 timestamp
@@ -119,32 +134,39 @@ interface NoteItem {
 - Includes a fallback script injector using `chrome.scripting.executeScript` for web pages opened before the extension was loaded or reloaded.
 
 ### In-Page Content Script Dialog (`content.js`)
-- Injected on web pages.
-- Mounts a `#vocab-extension-root` host and attaches an `open` Shadow Root.
-- Injects a backdrop modal containing:
-  - Save Word: Word (prefilled), Translation (auto-focused), Definition, Source info, Save, Cancel.
-  - Save Note: Title (prefilled), Body (auto-focused), Source info, Save, Cancel.
+- Injected on web pages using Shadow DOM.
+- Supports:
+  - Save Word: Word (prefilled), Translation (auto-focused), Definition, Color Swatches, Tags input, Source info, Save, Cancel.
+  - Save Note: Title (prefilled), Body (auto-focused), Color Swatches, Tags input, Source info, Save, Cancel.
 - Keyboard shortcuts:
-  - `Escape` closes the modal.
-  - `Enter` (or `Ctrl+Enter` / `Cmd+Enter` in textareas) submits and saves directly to storage.
-  - Shows an animated checkmark toast upon saving and dismisses automatically.
+  - `Escape` closes modal.
+  - `Enter` / `Ctrl+Enter` saves directly to `chrome.storage.local`.
 
 ### Popup Interface (`popup.html` & `popup.js`)
-- Fixed dimensions: `440px` x `580px`.
-- Direct navigation matching all required buttons:
-  - `[ 📚 See Saves ]`: Subtabs for Words (with badge count) and Notes (with badge count), real-time search, cards with edit and delete actions.
-  - `[ + Add Word ]`: Quick manual form for word, translation, definition, and source URL.
-  - `[ + Add Note ]`: Quick manual form for title, body, and source URL.
+- Fixed dimensions: `460px` x `600px`.
+- Direct navigation:
+  - `[ 📚 See Saves ]`: Subtabs for Words and Notes, real-time search, sorting dropdown, color filter, dynamic tag filter, dynamic website filter, reset button, and item cards with edit/delete.
+  - `[ + Add Word ]`: Manual form for word, translation, definition, color swatches, tags, and source URL.
+  - `[ + Add Note ]`: Manual form for title, body, color swatches, tags, and source URL.
   - `[ ⤓ Export ]`: Direct download buttons for CSV (Anki compatible) and JSON formats.
 
+### Sorting & Filtering Engine
+- **Sorting:**
+  - `date-desc`: Newest first
+  - `date-asc`: Oldest first
+  - `alpha-asc`: Alphabetical A &rarr; Z (by word or title)
+  - `alpha-desc`: Alphabetical Z &rarr; A (by word or title)
+- **Filtering:**
+  - Text search: Matches query across title/word, translation, definition/body, and tags.
+  - Color filter: Matches selected solid color or "all".
+  - Tag filter: Dynamically populated from all active items. Clicking a `#tag` pill on any card auto-applies this filter.
+  - Website filter: Dynamically populated with unique domains extracted from `sourceUrl` using `extractDomain()`.
+  - Reset button: Restores all filters to defaults in one click.
+
 ### Anki Compatibility & RFC 4180 CSV Export
-- Anki requires clean tabular data. `storage.js` escapes quotes as `""` and wraps fields containing commas, quotes, or newlines in double quotes.
-- Words CSV format:
-  `Word,Translation,Definition,SourceUrl,CreatedAt`
-- Anki Field Mapping:
-  - Field 1 = Front
-  - Field 2 = Back
-  - Field 3 = Notes / Context
+- Words CSV format: `Word,Translation,Definition,Color,Tags,SourceUrl,CreatedAt`
+- Notes CSV format: `Title,Body,Color,Tags,SourceUrl,CreatedAt`
+- Fields containing commas, newlines, or quotes are properly escaped with double quotes.
 
 ---
 
@@ -153,27 +175,42 @@ interface NoteItem {
 1. Open Google Chrome.
 2. Navigate to `chrome://extensions/`.
 3. Enable **Developer mode** toggle in the top-right corner.
-4. Click **Load unpacked** in the top-left corner.
+4. Click **Load unpacked** (or click the reload icon on the "Vocab & Notes" card).
 5. Select the project directory: `c:\Users\Younes-Asus\Desktop\vocab-extention`.
 6. Test functionality:
-   - Go to any website (e.g. `https://en.wikipedia.org/wiki/Language`).
-   - Highlight any word -> right-click -> click **Save word "..."**. Fill in translation and definition -> click **Save**.
-   - Highlight a sentence or paragraph -> right-click -> click **Save as note "..."**. Fill in note body -> click **Save**.
-   - Click the extension icon in Chrome toolbar -> click **See Saves** -> verify your word in the **Words** tab and note in the **Notes** tab.
-   - Test adding a word and note directly through the **Add Word** and **Add Note** buttons in the popup.
-   - Go to **Export** tab and download `.csv` and `.json` files to inspect them.
+   - Highlight text on any page -> right-click -> **Save word** or **Save as note**. Choose a color swatch and add tags -> save.
+   - Open popup -> click **See Saves** -> test sorting by time and alphabetical order.
+   - Test filtering by color, selecting a tag, and filtering by website.
+   - Click a tag pill on any card to test instant tag filtering.
+   - Test adding with colors and tags from popup, and editing an existing item.
+   - Go to **Export** and download updated CSVs and JSONs.
 
 ---
 
 ## 7. Change Log & Session History
 
 ### Session 1 (2026-10-28):
-- **Created:**
-  - `manifest.json` (Manifest V3, permissions: contextMenus, storage, activeTab, scripting).
-  - `storage.js` (Shared storage helper with CRUD for words/notes and RFC 4180 CSV/JSON export).
-  - `background.js` (Service worker registering context menus with dynamic fallback injection).
-  - `content.js` & `content.css` (Shadow DOM isolated in-page modal dialogs for saving words and notes).
-  - `popup.html`, `popup.css`, `popup.js` (Minimalist modern interface with zero gradients, tabs, search, forms, edit/delete modals, and export options).
-  - `icons/` (Generated 16x16, 32x32, 48x48, 128x128 PNGs + SVG).
-  - `Agents.md` (Comprehensive documentation and persistent memory for agents).
-  - Tested JavaScript syntax and data structures.
+- Created base Manifest V3 extension structure:
+  - Context menu word and note saving via Shadow DOM in-page modals.
+  - Extension popup with See Saves (Words/Notes tabs), Add Word, Add Note, and Export views.
+  - RFC 4180 CSV and JSON exporters with Anki guide.
+  - Created initial `Agents.md` context file.
+
+### Session 2 (2026-10-28):
+- Added **Color categorization**:
+  - 7 solid, minimalist swatches (`none`, `blue`, `green`, `yellow`, `red`, `purple`, `orange`).
+  - Swatch pickers in in-page modal (`content.js`), popup add forms (`popup.html`/`popup.js`), and edit modals.
+  - Visual color indicators: Left border stripe and colored dot on word & note cards.
+- Added **Tagging support**:
+  - Tags input in in-page dialog, popup forms, and edit modal.
+  - Normalized lowercase, trimmed, deduplicated tags.
+  - Clickable `#tag` pills on cards that immediately filter the list.
+- Added **Sorting engine**:
+  - Newest First, Oldest First, Alphabetical A &rarr; Z, Alphabetical Z &rarr; A.
+- Added **Multi-attribute Filtering**:
+  - Filter by color dropdown.
+  - Filter by dynamically aggregated tags dropdown.
+  - Filter by dynamically aggregated website domains (`extractDomain()`) dropdown.
+  - Real-time combined filtering with search query and one-click Reset button.
+- Updated CSV and JSON export formats to include `Color` and `Tags`.
+- Updated `Agents.md` documentation.

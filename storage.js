@@ -11,11 +11,46 @@
     NOTES: 'vocab_notes'
   };
 
+  const VALID_COLORS = ['none', 'blue', 'green', 'yellow', 'red', 'purple', 'orange'];
+
   /**
    * Generates a unique, sortable identifier
    */
   function generateId(prefix = 'item') {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`;
+  }
+
+  /**
+   * Parse tags from string (comma-separated) or array into clean, lowercase, unique tag array
+   */
+  function parseTags(input) {
+    if (!input) return [];
+    if (Array.isArray(input)) {
+      return [...new Set(input.map((t) => String(t).trim().toLowerCase()).filter(Boolean))];
+    }
+    return [...new Set(String(input).split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))];
+  }
+
+  /**
+   * Validate or default color
+   */
+  function sanitizeColor(color) {
+    if (!color || typeof color !== 'string') return 'none';
+    const c = color.toLowerCase().trim();
+    return VALID_COLORS.includes(c) ? c : 'none';
+  }
+
+  /**
+   * Extract clean domain from URL
+   */
+  function extractDomain(url) {
+    if (!url) return 'Direct / Manual';
+    try {
+      const u = new URL(url);
+      return u.hostname.replace(/^www\./, '');
+    } catch {
+      return 'Direct / Manual';
+    }
   }
 
   /**
@@ -44,17 +79,35 @@
   }
 
   const VocabStorage = {
+    VALID_COLORS,
+    parseTags,
+    sanitizeColor,
+    extractDomain,
+
     // -------------------------------------------------------------
     // WORDS CRUD
     // -------------------------------------------------------------
 
     async getWords() {
       const words = await getFromStorage(STORAGE_KEYS.WORDS);
-      // Sort newest first
-      return words.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      // Normalize legacy entries without color or tags
+      return words.map((w) => ({
+        ...w,
+        color: sanitizeColor(w.color),
+        tags: Array.isArray(w.tags) ? w.tags : []
+      }));
     },
 
-    async saveWord({ word, translation, definition = '', sourceUrl = '', sourceTitle = '', context = '' }) {
+    async saveWord({
+      word,
+      translation,
+      definition = '',
+      color = 'none',
+      tags = [],
+      sourceUrl = '',
+      sourceTitle = '',
+      context = ''
+    }) {
       if (!word || !word.trim()) {
         throw new Error('Word is required.');
       }
@@ -68,6 +121,8 @@
         word: word.trim(),
         translation: translation.trim(),
         definition: (definition || '').trim(),
+        color: sanitizeColor(color),
+        tags: parseTags(tags),
         sourceUrl: sourceUrl || '',
         sourceTitle: sourceTitle || '',
         context: context || '',
@@ -87,9 +142,17 @@
         throw new Error(`Word with id ${id} not found.`);
       }
 
+      const cleanUpdates = { ...updates };
+      if ('color' in cleanUpdates) {
+        cleanUpdates.color = sanitizeColor(cleanUpdates.color);
+      }
+      if ('tags' in cleanUpdates) {
+        cleanUpdates.tags = parseTags(cleanUpdates.tags);
+      }
+
       const updated = {
         ...words[index],
-        ...updates,
+        ...cleanUpdates,
         updatedAt: new Date().toISOString()
       };
 
@@ -111,11 +174,21 @@
 
     async getNotes() {
       const notes = await getFromStorage(STORAGE_KEYS.NOTES);
-      // Sort newest first
-      return notes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      return notes.map((n) => ({
+        ...n,
+        color: sanitizeColor(n.color),
+        tags: Array.isArray(n.tags) ? n.tags : []
+      }));
     },
 
-    async saveNote({ title, body = '', sourceUrl = '', sourceTitle = '' }) {
+    async saveNote({
+      title,
+      body = '',
+      color = 'none',
+      tags = [],
+      sourceUrl = '',
+      sourceTitle = ''
+    }) {
       if (!title || !title.trim()) {
         throw new Error('Note title is required.');
       }
@@ -125,6 +198,8 @@
         id: generateId('note'),
         title: title.trim(),
         body: (body || '').trim(),
+        color: sanitizeColor(color),
+        tags: parseTags(tags),
         sourceUrl: sourceUrl || '',
         sourceTitle: sourceTitle || '',
         createdAt: new Date().toISOString(),
@@ -143,9 +218,17 @@
         throw new Error(`Note with id ${id} not found.`);
       }
 
+      const cleanUpdates = { ...updates };
+      if ('color' in cleanUpdates) {
+        cleanUpdates.color = sanitizeColor(cleanUpdates.color);
+      }
+      if ('tags' in cleanUpdates) {
+        cleanUpdates.tags = parseTags(cleanUpdates.tags);
+      }
+
       const updated = {
         ...notes[index],
-        ...updates,
+        ...cleanUpdates,
         updatedAt: new Date().toISOString()
       };
 
@@ -181,11 +264,13 @@
     },
 
     exportWordsToCsv(words) {
-      const headers = ['Word', 'Translation', 'Definition', 'SourceUrl', 'CreatedAt'];
+      const headers = ['Word', 'Translation', 'Definition', 'Color', 'Tags', 'SourceUrl', 'CreatedAt'];
       const rows = words.map((w) => [
         this.escapeCsvField(w.word),
         this.escapeCsvField(w.translation),
         this.escapeCsvField(w.definition),
+        this.escapeCsvField(w.color || 'none'),
+        this.escapeCsvField((w.tags || []).join('; ')),
         this.escapeCsvField(w.sourceUrl),
         this.escapeCsvField(w.createdAt)
       ].join(','));
@@ -198,10 +283,12 @@
     },
 
     exportNotesToCsv(notes) {
-      const headers = ['Title', 'Body', 'SourceUrl', 'CreatedAt'];
+      const headers = ['Title', 'Body', 'Color', 'Tags', 'SourceUrl', 'CreatedAt'];
       const rows = notes.map((n) => [
         this.escapeCsvField(n.title),
         this.escapeCsvField(n.body),
+        this.escapeCsvField(n.color || 'none'),
+        this.escapeCsvField((n.tags || []).join('; ')),
         this.escapeCsvField(n.sourceUrl),
         this.escapeCsvField(n.createdAt)
       ].join(','));

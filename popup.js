@@ -1,5 +1,6 @@
 /**
  * popup.js - Interactive Controller for Vocab & Notes Extension Popup
+ * Supports Color categorization, Tagging, Multi-attribute Filtering, and Sorting.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -10,8 +11,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentSubTab = 'words';
   let cachedWords = [];
   let cachedNotes = [];
-  let searchQuery = '';
   let activeTabUrl = '';
+
+  // Filter & Sort State
+  let searchQuery = '';
+  let sortOrder = 'date-desc';
+  let colorFilter = 'all';
+  let tagFilter = 'all';
+  let websiteFilter = 'all';
+
+  // Form Colors
+  let addWordColor = 'none';
+  let addNoteColor = 'none';
+  let editItemColor = 'none';
+
+  // Modals State
   let itemToEdit = null;
   let itemToDelete = null;
 
@@ -23,29 +37,41 @@ document.addEventListener('DOMContentLoaded', async () => {
   const wordsListEl = document.getElementById('words-list');
   const notesListEl = document.getElementById('notes-list');
 
-  // DOM Elements - Counters & Badges
+  // DOM Elements - Badges & Stats
   const badgeWordsCount = document.getElementById('badge-words-count');
   const badgeNotesCount = document.getElementById('badge-notes-count');
   const statWordsPill = document.getElementById('stat-words-pill');
   const statNotesPill = document.getElementById('stat-notes-pill');
 
-  // DOM Elements - Search
+  // DOM Elements - Search & Filters
   const searchInput = document.getElementById('search-input');
   const searchClearBtn = document.getElementById('search-clear-btn');
+  const sortSelect = document.getElementById('sort-select');
+  const filterColor = document.getElementById('filter-color');
+  const filterTag = document.getElementById('filter-tag');
+  const filterWebsite = document.getElementById('filter-website');
+  const btnResetFilters = document.getElementById('btn-reset-filters');
+  const filterStatusBar = document.getElementById('filter-status-bar');
+  const filterStatusText = document.getElementById('filter-status-text');
 
-  // DOM Elements - Forms
+  // DOM Elements - Add Word Form
   const formAddWord = document.getElementById('form-add-word');
   const wordInput = document.getElementById('word-input');
   const translationInput = document.getElementById('translation-input');
   const definitionInput = document.getElementById('definition-input');
+  const wordTagsInput = document.getElementById('word-tags-input');
   const wordSourceUrl = document.getElementById('word-source-url');
   const btnCancelAddWord = document.getElementById('btn-cancel-add-word');
+  const addWordColorPicker = document.getElementById('add-word-color-picker');
 
+  // DOM Elements - Add Note Form
   const formAddNote = document.getElementById('form-add-note');
   const noteTitleInput = document.getElementById('note-title-input');
   const noteBodyInput = document.getElementById('note-body-input');
+  const noteTagsInput = document.getElementById('note-tags-input');
   const noteSourceUrl = document.getElementById('note-source-url');
   const btnCancelAddNote = document.getElementById('btn-cancel-add-note');
+  const addNoteColorPicker = document.getElementById('add-note-color-picker');
 
   // DOM Elements - Export
   const btnExportWordsCsv = document.getElementById('btn-export-words-csv');
@@ -73,7 +99,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   const toastContainer = document.getElementById('toast-container');
 
   // -------------------------------------------------------------
-  // INITIALIZATION & ACTIVE TAB DETECTION
+  // COLOR PICKER HELPER
+  // -------------------------------------------------------------
+
+  function renderColorPicker(container, currentColor, onChange) {
+    container.innerHTML = '';
+    VocabStorage.VALID_COLORS.forEach((c) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `color-swatch-btn swatch-${c} ${c === currentColor ? 'active' : ''}`;
+      btn.title = c === 'none' ? 'No color (Default)' : c.charAt(0).toUpperCase() + c.slice(1);
+      btn.addEventListener('click', () => {
+        container.querySelectorAll('.color-swatch-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        onChange(c);
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  renderColorPicker(addWordColorPicker, addWordColor, (c) => (addWordColor = c));
+  renderColorPicker(addNoteColorPicker, addNoteColor, (c) => (addNoteColor = c));
+
+  // -------------------------------------------------------------
+  // INITIALIZATION
   // -------------------------------------------------------------
 
   try {
@@ -84,7 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       noteSourceUrl.value = activeTabUrl;
     }
   } catch (e) {
-    // Non-fatal if activeTab cannot be queried
+    // Non-fatal
   }
 
   await loadAllData();
@@ -136,6 +185,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       wordsListEl.style.display = 'none';
       notesListEl.style.display = 'flex';
     }
+
+    populateDynamicFilters();
     renderLists();
   }
 
@@ -143,7 +194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   tabNotesBtn.addEventListener('click', () => switchSubTab('notes'));
 
   // -------------------------------------------------------------
-  // DATA LOADING & RENDERING
+  // DATA LOADING & POPULATION
   // -------------------------------------------------------------
 
   async function loadAllData() {
@@ -152,6 +203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       cachedWords = words || [];
       cachedNotes = notes || [];
       updateBadges();
+      populateDynamicFilters();
       renderLists();
     } catch (err) {
       console.error('Error loading data:', err);
@@ -168,6 +220,143 @@ document.addEventListener('DOMContentLoaded', async () => {
     statWordsPill.textContent = `${wCount} word${wCount === 1 ? '' : 's'}`;
     statNotesPill.textContent = `${nCount} note${nCount === 1 ? '' : 's'}`;
   }
+
+  /**
+   * Dynamically populate Tag and Website dropdowns based on the active tab's items
+   */
+  function populateDynamicFilters() {
+    const activeItems = currentSubTab === 'words' ? cachedWords : cachedNotes;
+
+    // Collect Unique Tags
+    const tagsSet = new Set();
+    activeItems.forEach((item) => {
+      (item.tags || []).forEach((t) => tagsSet.add(t));
+    });
+    const uniqueTags = Array.from(tagsSet).sort();
+
+    // Populate Tag Select
+    const prevTag = filterTag.value;
+    filterTag.innerHTML = '<option value="all">All Tags</option>';
+    uniqueTags.forEach((tag) => {
+      const opt = document.createElement('option');
+      opt.value = tag;
+      opt.textContent = `#${tag}`;
+      filterTag.appendChild(opt);
+    });
+    if (uniqueTags.includes(prevTag)) {
+      filterTag.value = prevTag;
+      tagFilter = prevTag;
+    } else {
+      filterTag.value = 'all';
+      tagFilter = 'all';
+    }
+
+    // Collect Unique Websites / Domains
+    const domainsSet = new Set();
+    activeItems.forEach((item) => {
+      const domain = VocabStorage.extractDomain(item.sourceUrl);
+      domainsSet.add(domain);
+    });
+    const uniqueDomains = Array.from(domainsSet).sort();
+
+    // Populate Website Select
+    const prevSite = filterWebsite.value;
+    filterWebsite.innerHTML = '<option value="all">All Websites</option>';
+    uniqueDomains.forEach((site) => {
+      const opt = document.createElement('option');
+      opt.value = site;
+      opt.textContent = site;
+      filterWebsite.appendChild(opt);
+    });
+    if (uniqueDomains.includes(prevSite)) {
+      filterWebsite.value = prevSite;
+      websiteFilter = prevSite;
+    } else {
+      filterWebsite.value = 'all';
+      websiteFilter = 'all';
+    }
+  }
+
+  // -------------------------------------------------------------
+  // SORTING & FILTERING LOGIC
+  // -------------------------------------------------------------
+
+  function getSortedAndFilteredItems(items, type) {
+    const q = searchQuery.toLowerCase().trim();
+
+    // 1. Filter
+    let filtered = items.filter((item) => {
+      // Search Query
+      if (q) {
+        const titleMatch = (type === 'word' ? item.word : item.title).toLowerCase().includes(q);
+        const bodyMatch = (type === 'word' ? (item.translation + ' ' + (item.definition || '')) : (item.body || '')).toLowerCase().includes(q);
+        const tagMatch = (item.tags || []).some((t) => t.toLowerCase().includes(q));
+        if (!titleMatch && !bodyMatch && !tagMatch) return false;
+      }
+
+      // Color Filter
+      if (colorFilter !== 'all') {
+        const itemColor = item.color || 'none';
+        if (itemColor !== colorFilter) return false;
+      }
+
+      // Tag Filter
+      if (tagFilter !== 'all') {
+        if (!item.tags || !item.tags.includes(tagFilter)) return false;
+      }
+
+      // Website Filter
+      if (websiteFilter !== 'all') {
+        const domain = VocabStorage.extractDomain(item.sourceUrl);
+        if (domain !== websiteFilter) return false;
+      }
+
+      return true;
+    });
+
+    // 2. Sort
+    filtered.sort((a, b) => {
+      if (sortOrder === 'date-desc') {
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      }
+      if (sortOrder === 'date-asc') {
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      }
+      if (sortOrder === 'alpha-asc') {
+        const aVal = (type === 'word' ? a.word : a.title).toLowerCase();
+        const bVal = (type === 'word' ? b.word : b.title).toLowerCase();
+        return aVal.localeCompare(bVal);
+      }
+      if (sortOrder === 'alpha-desc') {
+        const aVal = (type === 'word' ? a.word : a.title).toLowerCase();
+        const bVal = (type === 'word' ? b.word : b.title).toLowerCase();
+        return bVal.localeCompare(aVal);
+      }
+      return 0;
+    });
+
+    return filtered;
+  }
+
+  function updateFilterStatusBar(totalCount, filteredCount) {
+    const isFiltered =
+      searchQuery !== '' ||
+      colorFilter !== 'all' ||
+      tagFilter !== 'all' ||
+      websiteFilter !== 'all' ||
+      sortOrder !== 'date-desc';
+
+    if (isFiltered) {
+      filterStatusBar.style.display = 'flex';
+      filterStatusText.textContent = `Showing ${filteredCount} of ${totalCount} items (Filtered)`;
+    } else {
+      filterStatusBar.style.display = 'none';
+    }
+  }
+
+  // -------------------------------------------------------------
+  // RENDERING LISTS
+  // -------------------------------------------------------------
 
   function formatDate(isoStr) {
     if (!isoStr) return '';
@@ -193,28 +382,46 @@ document.addEventListener('DOMContentLoaded', async () => {
       .replace(/'/g, '&#039;');
   }
 
+  function cleanUrl(url) {
+    try {
+      const u = new URL(url);
+      return u.hostname + (u.pathname.length > 1 ? u.pathname.substring(0, 20) + '...' : '');
+    } catch {
+      return url.substring(0, 25) + '...';
+    }
+  }
+
   function renderLists() {
-    const q = searchQuery.toLowerCase().trim();
+    const isWordsTab = currentSubTab === 'words';
+    const activeItems = isWordsTab ? cachedWords : cachedNotes;
+    const filtered = getSortedAndFilteredItems(activeItems, isWordsTab ? 'word' : 'note');
 
-    // 1. Render Words List
-    const filteredWords = cachedWords.filter((w) => {
-      if (!q) return true;
-      return (
-        w.word.toLowerCase().includes(q) ||
-        (w.translation && w.translation.toLowerCase().includes(q)) ||
-        (w.definition && w.definition.toLowerCase().includes(q))
-      );
-    });
+    updateFilterStatusBar(activeItems.length, filtered.length);
 
+    if (isWordsTab) {
+      renderWordsList(filtered);
+    } else {
+      renderNotesList(filtered);
+    }
+
+    attachCardEventListeners();
+  }
+
+  function renderWordsList(filteredWords) {
     if (filteredWords.length === 0) {
-      if (q) {
+      const isFiltered =
+        searchQuery || colorFilter !== 'all' || tagFilter !== 'all' || websiteFilter !== 'all';
+
+      if (isFiltered) {
         wordsListEl.innerHTML = `
           <div class="empty-state">
             <span class="empty-icon">🔍</span>
             <div class="empty-title">No matching words</div>
-            <div class="empty-desc">No saved words match "${escapeHtml(q)}".</div>
+            <div class="empty-desc">No saved words match your search or filter criteria.</div>
+            <button class="btn btn-secondary" id="empty-reset-filters-btn" style="margin-top: 6px;">Reset Filters</button>
           </div>
         `;
+        document.getElementById('empty-reset-filters-btn')?.addEventListener('click', resetAllFilters);
       } else {
         wordsListEl.innerHTML = `
           <div class="empty-state">
@@ -228,58 +435,66 @@ document.addEventListener('DOMContentLoaded', async () => {
           switchView('view-add-word');
         });
       }
-    } else {
-      wordsListEl.innerHTML = filteredWords
-        .map(
-          (w) => `
-        <div class="item-card" data-id="${w.id}">
-          <div class="card-top">
-            <div class="card-title-wrap">
-              <span class="card-word">${escapeHtml(w.word)}</span>
-              <span class="card-translation">${escapeHtml(w.translation)}</span>
-            </div>
-            <div class="card-actions">
-              <button class="card-action-btn edit-word-btn" data-id="${w.id}" title="Edit word">✏️ Edit</button>
-              <button class="card-action-btn delete-btn delete-word-btn" data-id="${w.id}" title="Delete word">🗑️</button>
-            </div>
-          </div>
-          ${
-            w.definition
-              ? `<div class="card-definition">${escapeHtml(w.definition)}</div>`
-              : ''
-          }
-          <div class="card-footer">
-            <span>${formatDate(w.createdAt)}</span>
-            ${
-              w.sourceUrl
-                ? `<a href="${escapeHtml(w.sourceUrl)}" target="_blank" class="card-source-link" title="${escapeHtml(w.sourceUrl)}">🔗 ${escapeHtml(cleanUrl(w.sourceUrl))}</a>`
-                : ''
-            }
-          </div>
-        </div>
-      `
-        )
-        .join('');
+      return;
     }
 
-    // 2. Render Notes List
-    const filteredNotes = cachedNotes.filter((n) => {
-      if (!q) return true;
-      return (
-        n.title.toLowerCase().includes(q) ||
-        (n.body && n.body.toLowerCase().includes(q))
-      );
-    });
+    wordsListEl.innerHTML = filteredWords
+      .map((w) => {
+        const itemColor = w.color || 'none';
+        const colorClass = itemColor !== 'none' ? `card-color-${itemColor}` : '';
+        const dotHtml =
+          itemColor !== 'none' ? `<span class="card-color-dot dot-${itemColor}"></span>` : '';
+        const tagsHtml =
+          w.tags && w.tags.length > 0
+            ? `<div class="card-tags">${w.tags
+                .map((t) => `<span class="card-tag" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</span>`)
+                .join('')}</div>`
+            : '';
 
+        return `
+          <div class="item-card ${colorClass}" data-id="${w.id}">
+            <div class="card-top">
+              <div class="card-title-wrap">
+                ${dotHtml}
+                <span class="card-word">${escapeHtml(w.word)}</span>
+                <span class="card-translation">${escapeHtml(w.translation)}</span>
+              </div>
+              <div class="card-actions">
+                <button class="card-action-btn edit-word-btn" data-id="${w.id}" title="Edit word">✏️ Edit</button>
+                <button class="card-action-btn delete-btn delete-word-btn" data-id="${w.id}" title="Delete word">🗑️</button>
+              </div>
+            </div>
+            ${w.definition ? `<div class="card-definition">${escapeHtml(w.definition)}</div>` : ''}
+            ${tagsHtml}
+            <div class="card-footer">
+              <span>${formatDate(w.createdAt)}</span>
+              ${
+                w.sourceUrl
+                  ? `<a href="${escapeHtml(w.sourceUrl)}" target="_blank" class="card-source-link" title="${escapeHtml(w.sourceUrl)}">🔗 ${escapeHtml(cleanUrl(w.sourceUrl))}</a>`
+                  : ''
+              }
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function renderNotesList(filteredNotes) {
     if (filteredNotes.length === 0) {
-      if (q) {
+      const isFiltered =
+        searchQuery || colorFilter !== 'all' || tagFilter !== 'all' || websiteFilter !== 'all';
+
+      if (isFiltered) {
         notesListEl.innerHTML = `
           <div class="empty-state">
             <span class="empty-icon">🔍</span>
             <div class="empty-title">No matching notes</div>
-            <div class="empty-desc">No saved notes match "${escapeHtml(q)}".</div>
+            <div class="empty-desc">No saved notes match your search or filter criteria.</div>
+            <button class="btn btn-secondary" id="empty-reset-filters-btn-notes" style="margin-top: 6px;">Reset Filters</button>
           </div>
         `;
+        document.getElementById('empty-reset-filters-btn-notes')?.addEventListener('click', resetAllFilters);
       } else {
         notesListEl.innerHTML = `
           <div class="empty-state">
@@ -293,45 +508,48 @@ document.addEventListener('DOMContentLoaded', async () => {
           switchView('view-add-note');
         });
       }
-    } else {
-      notesListEl.innerHTML = filteredNotes
-        .map(
-          (n) => `
-        <div class="item-card" data-id="${n.id}">
-          <div class="card-top">
-            <div class="card-title-wrap">
-              <span class="card-word">${escapeHtml(n.title)}</span>
-            </div>
-            <div class="card-actions">
-              <button class="card-action-btn edit-note-btn" data-id="${n.id}" title="Edit note">✏️ Edit</button>
-              <button class="card-action-btn delete-btn delete-note-btn" data-id="${n.id}" title="Delete note">🗑️</button>
-            </div>
-          </div>
-          <div class="card-note-body">${escapeHtml(n.body)}</div>
-          <div class="card-footer">
-            <span>${formatDate(n.createdAt)}</span>
-            ${
-              n.sourceUrl
-                ? `<a href="${escapeHtml(n.sourceUrl)}" target="_blank" class="card-source-link" title="${escapeHtml(n.sourceUrl)}">🔗 ${escapeHtml(cleanUrl(n.sourceUrl))}</a>`
-                : ''
-            }
-          </div>
-        </div>
-      `
-        )
-        .join('');
+      return;
     }
 
-    attachCardEventListeners();
-  }
+    notesListEl.innerHTML = filteredNotes
+      .map((n) => {
+        const itemColor = n.color || 'none';
+        const colorClass = itemColor !== 'none' ? `card-color-${itemColor}` : '';
+        const dotHtml =
+          itemColor !== 'none' ? `<span class="card-color-dot dot-${itemColor}"></span>` : '';
+        const tagsHtml =
+          n.tags && n.tags.length > 0
+            ? `<div class="card-tags">${n.tags
+                .map((t) => `<span class="card-tag" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</span>`)
+                .join('')}</div>`
+            : '';
 
-  function cleanUrl(url) {
-    try {
-      const u = new URL(url);
-      return u.hostname + (u.pathname.length > 1 ? u.pathname.substring(0, 20) + '...' : '');
-    } catch {
-      return url.substring(0, 25) + '...';
-    }
+        return `
+          <div class="item-card ${colorClass}" data-id="${n.id}">
+            <div class="card-top">
+              <div class="card-title-wrap">
+                ${dotHtml}
+                <span class="card-word">${escapeHtml(n.title)}</span>
+              </div>
+              <div class="card-actions">
+                <button class="card-action-btn edit-note-btn" data-id="${n.id}" title="Edit note">✏️ Edit</button>
+                <button class="card-action-btn delete-btn delete-note-btn" data-id="${n.id}" title="Delete note">🗑️</button>
+              </div>
+            </div>
+            <div class="card-note-body">${escapeHtml(n.body)}</div>
+            ${tagsHtml}
+            <div class="card-footer">
+              <span>${formatDate(n.createdAt)}</span>
+              ${
+                n.sourceUrl
+                  ? `<a href="${escapeHtml(n.sourceUrl)}" target="_blank" class="card-source-link" title="${escapeHtml(n.sourceUrl)}">🔗 ${escapeHtml(cleanUrl(n.sourceUrl))}</a>`
+                  : ''
+              }
+            </div>
+          </div>
+        `;
+      })
+      .join('');
   }
 
   function attachCardEventListeners() {
@@ -370,10 +588,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (item) openDeleteModal('note', item);
       });
     });
+
+    // Clicking a Tag pill filters directly by that tag
+    document.querySelectorAll('.card-tag').forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const t = pill.dataset.tag;
+        if (t) {
+          filterTag.value = t;
+          tagFilter = t;
+          renderLists();
+        }
+      });
+    });
   }
 
   // -------------------------------------------------------------
-  // SEARCH FILTER
+  // FILTERS & SORT LISTENERS
   // -------------------------------------------------------------
 
   searchInput.addEventListener('input', () => {
@@ -390,6 +620,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchInput.focus();
   });
 
+  sortSelect.addEventListener('change', () => {
+    sortOrder = sortSelect.value;
+    renderLists();
+  });
+
+  filterColor.addEventListener('change', () => {
+    colorFilter = filterColor.value;
+    renderLists();
+  });
+
+  filterTag.addEventListener('change', () => {
+    tagFilter = filterTag.value;
+    renderLists();
+  });
+
+  filterWebsite.addEventListener('change', () => {
+    websiteFilter = filterWebsite.value;
+    renderLists();
+  });
+
+  function resetAllFilters() {
+    searchQuery = '';
+    searchInput.value = '';
+    searchClearBtn.style.display = 'none';
+
+    sortOrder = 'date-desc';
+    sortSelect.value = 'date-desc';
+
+    colorFilter = 'all';
+    filterColor.value = 'all';
+
+    tagFilter = 'all';
+    filterTag.value = 'all';
+
+    websiteFilter = 'all';
+    filterWebsite.value = 'all';
+
+    renderLists();
+  }
+
+  btnResetFilters.addEventListener('click', resetAllFilters);
+
   // -------------------------------------------------------------
   // FORM: ADD WORD
   // -------------------------------------------------------------
@@ -399,6 +671,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const word = wordInput.value.trim();
     const translation = translationInput.value.trim();
     const definition = definitionInput.value.trim();
+    const rawTags = wordTagsInput.value.trim();
     const sourceUrl = wordSourceUrl.value.trim();
 
     if (!word || !translation) {
@@ -411,12 +684,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         word,
         translation,
         definition,
+        color: addWordColor,
+        tags: rawTags,
         sourceUrl
       });
 
       wordInput.value = '';
       translationInput.value = '';
       definitionInput.value = '';
+      wordTagsInput.value = '';
+      addWordColor = 'none';
+      renderColorPicker(addWordColorPicker, addWordColor, (c) => (addWordColor = c));
+
       if (!activeTabUrl) wordSourceUrl.value = '';
 
       await loadAllData();
@@ -437,6 +716,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     const title = noteTitleInput.value.trim();
     const body = noteBodyInput.value.trim();
+    const rawTags = noteTagsInput.value.trim();
     const sourceUrl = noteSourceUrl.value.trim();
 
     if (!title || !body) {
@@ -448,11 +728,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       await VocabStorage.saveNote({
         title,
         body,
+        color: addNoteColor,
+        tags: rawTags,
         sourceUrl
       });
 
       noteTitleInput.value = '';
       noteBodyInput.value = '';
+      noteTagsInput.value = '';
+      addNoteColor = 'none';
+      renderColorPicker(addNoteColorPicker, addNoteColor, (c) => (addNoteColor = c));
+
       if (!activeTabUrl) noteSourceUrl.value = '';
 
       await loadAllData();
@@ -471,6 +757,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function openEditModal(type, item) {
     itemToEdit = { type, item };
+    editItemColor = item.color || 'none';
     editModalTitle.textContent = type === 'word' ? 'Edit Word' : 'Edit Note';
 
     if (type === 'word') {
@@ -485,7 +772,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         <div class="form-group">
           <label class="form-label">Definition</label>
-          <textarea id="edit-def-val" class="form-textarea" rows="3">${escapeHtml(item.definition || '')}</textarea>
+          <textarea id="edit-def-val" class="form-textarea" rows="2">${escapeHtml(item.definition || '')}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Color Accent</label>
+          <div class="color-picker-row" id="edit-color-picker"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tags (Comma separated)</label>
+          <input type="text" id="edit-tags-val" class="form-input" value="${escapeHtml((item.tags || []).join(', '))}" />
         </div>
       `;
     } else {
@@ -498,8 +793,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           <label class="form-label">Body <span class="req">*</span></label>
           <textarea id="edit-body-val" class="form-textarea" rows="4">${escapeHtml(item.body || '')}</textarea>
         </div>
+        <div class="form-group">
+          <label class="form-label">Color Accent</label>
+          <div class="color-picker-row" id="edit-color-picker"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tags (Comma separated)</label>
+          <input type="text" id="edit-tags-val" class="form-input" value="${escapeHtml((item.tags || []).join(', '))}" />
+        </div>
       `;
     }
+
+    const editColorPicker = document.getElementById('edit-color-picker');
+    renderColorPicker(editColorPicker, editItemColor, (c) => (editItemColor = c));
 
     editModal.style.display = 'flex';
   }
@@ -515,6 +821,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnSaveEdit.addEventListener('click', async () => {
     if (!itemToEdit) return;
 
+    const tagsVal = document.getElementById('edit-tags-val').value.trim();
+
     if (itemToEdit.type === 'word') {
       const w = document.getElementById('edit-word-val').value.trim();
       const t = document.getElementById('edit-trans-val').value.trim();
@@ -528,7 +836,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       await VocabStorage.updateWord(itemToEdit.item.id, {
         word: w,
         translation: t,
-        definition: d
+        definition: d,
+        color: editItemColor,
+        tags: tagsVal
       });
     } else {
       const title = document.getElementById('edit-title-val').value.trim();
@@ -541,7 +851,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       await VocabStorage.updateNote(itemToEdit.item.id, {
         title,
-        body
+        body,
+        color: editItemColor,
+        tags: tagsVal
       });
     }
 

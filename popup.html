@@ -23,7 +23,7 @@
       </div>
     </header>
 
-    <!-- Navigation Bar: Directly matches user's specified buttons -->
+    <!-- Navigation Bar -->
     <nav class="nav-bar">
       <button class="nav-btn active" id="nav-btn-saves" data-view="view-see-saves">
         <span class="nav-icon">📚</span>
@@ -66,8 +66,62 @@
         <!-- Search Bar -->
         <div class="search-bar-wrap">
           <span class="search-icon">🔍</span>
-          <input type="text" id="search-input" class="search-input" placeholder="Search words, translations, notes..." />
+          <input type="text" id="search-input" class="search-input" placeholder="Search words, translations, notes, tags..." />
           <button id="search-clear-btn" class="search-clear-btn" title="Clear search">×</button>
+        </div>
+
+        <!-- Filter & Sort Toolbar -->
+        <div class="filter-toolbar">
+          <!-- Row 1: Sort & Color -->
+          <div class="filter-row">
+            <div class="filter-group">
+              <label class="filter-label" for="sort-select">Sort:</label>
+              <select id="sort-select" class="filter-select">
+                <option value="date-desc">Newest First (Desc)</option>
+                <option value="date-asc">Oldest First (Asc)</option>
+                <option value="alpha-asc">Alphabetical (A → Z)</option>
+                <option value="alpha-desc">Alphabetical (Z → A)</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label class="filter-label" for="filter-color">Color:</label>
+              <select id="filter-color" class="filter-select">
+                <option value="all">All Colors</option>
+                <option value="none">No Color</option>
+                <option value="blue">Blue</option>
+                <option value="green">Green</option>
+                <option value="yellow">Yellow</option>
+                <option value="red">Red</option>
+                <option value="purple">Purple</option>
+                <option value="orange">Orange</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Row 2: Tag & Website & Reset -->
+          <div class="filter-row">
+            <div class="filter-group">
+              <label class="filter-label" for="filter-tag">Tag:</label>
+              <select id="filter-tag" class="filter-select">
+                <option value="all">All Tags</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label class="filter-label" for="filter-website">Website:</label>
+              <select id="filter-website" class="filter-select">
+                <option value="all">All Websites</option>
+              </select>
+            </div>
+
+            <button id="btn-reset-filters" class="btn-reset-filters" title="Reset filters">Reset</button>
+          </div>
+
+          <!-- Filter Status Pill -->
+          <div id="filter-status-bar" class="filter-status-bar" style="display: none;">
+            <span id="filter-status-text">Filtered</span>
+          </div>
         </div>
 
         <!-- Lists Container -->
@@ -90,7 +144,7 @@
       <section id="view-add-word" class="view-panel">
         <div class="panel-header">
           <h2 class="panel-title">Add New Word</h2>
-          <p class="panel-subtitle">Save a word with its translation and definition</p>
+          <p class="panel-subtitle">Save a word with translation, definition, color, and tags</p>
         </div>
 
         <form id="form-add-word" class="entry-form">
@@ -112,7 +166,23 @@
             <label for="definition-input" class="form-label">
               Definition <span class="optional">(Optional)</span>
             </label>
-            <textarea id="definition-input" class="form-textarea" rows="3" placeholder="e.g. Lasting for a very short time; fleeting."></textarea>
+            <textarea id="definition-input" class="form-textarea" rows="2" placeholder="e.g. Lasting for a very short time; fleeting."></textarea>
+          </div>
+
+          <!-- Color Picker -->
+          <div class="form-group">
+            <label class="form-label">Color Accent</label>
+            <div class="color-picker-row" id="add-word-color-picker">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Tags -->
+          <div class="form-group">
+            <label for="word-tags-input" class="form-label">
+              Tags <span class="optional">(Comma separated)</span>
+            </label>
+            <input type="text" id="word-tags-input" class="form-input" placeholder="e.g. adjective, B2, literature" />
           </div>
 
           <div class="form-group">
@@ -135,7 +205,7 @@
       <section id="view-add-note" class="view-panel">
         <div class="panel-header">
           <h2 class="panel-title">Add New Note</h2>
-          <p class="panel-subtitle">Record important thoughts, rules, or text excerpts</p>
+          <p class="panel-subtitle">Record important thoughts, rules, color code, and tags</p>
         </div>
 
         <form id="form-add-note" class="entry-form">
@@ -150,7 +220,23 @@
             <label for="note-body-input" class="form-label">
               Note Body <span class="req">*</span>
             </label>
-            <textarea id="note-body-input" class="form-textarea" rows="5" placeholder="Write your full note content here..." required></textarea>
+            <textarea id="note-body-input" class="form-textarea" rows="4" placeholder="Write your full note content here..." required></textarea>
+          </div>
+
+          <!-- Color Picker -->
+          <div class="form-group">
+            <label class="form-label">Color Accent</label>
+            <div class="color-picker-row" id="add-note-color-picker">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Tags -->
+          <div class="form-group">
+            <label for="note-tags-input" class="form-label">
+              Tags <span class="optional">(Comma separated)</span>
+            </label>
+            <input type="text" id="note-tags-input" class="form-input" placeholder="e.g. grammar, french, study" />
           </div>
 
           <div class="form-group">
@@ -185,7 +271,7 @@
                 <span class="export-tag anki">Anki Ready</span>
               </div>
               <h3 class="export-card-title">Saved Words (.csv)</h3>
-              <p class="export-card-desc">Formats Word, Translation, and Definition into clean CSV columns ready for Anki deck import.</p>
+              <p class="export-card-desc">Formats Word, Translation, Definition, Color, and Tags into clean CSV columns ready for Anki deck import.</p>
             </div>
             <button class="btn btn-secondary export-btn" id="btn-export-words-csv">
               Download .CSV
@@ -197,7 +283,7 @@
             <div class="export-card-info">
               <span class="export-tag json">JSON</span>
               <h3 class="export-card-title">Saved Words (.json)</h3>
-              <p class="export-card-desc">Complete JSON structure of all vocabulary entries with timestamps and URLs.</p>
+              <p class="export-card-desc">Complete JSON structure of all vocabulary entries with colors, tags, and timestamps.</p>
             </div>
             <button class="btn btn-secondary export-btn" id="btn-export-words-json">
               Download .JSON
@@ -209,7 +295,7 @@
             <div class="export-card-info">
               <span class="export-tag csv">CSV</span>
               <h3 class="export-card-title">Saved Notes (.csv)</h3>
-              <p class="export-card-desc">Spreadsheet-compatible table containing note titles, body texts, and sources.</p>
+              <p class="export-card-desc">Spreadsheet-compatible table containing note titles, body texts, colors, tags, and sources.</p>
             </div>
             <button class="btn btn-secondary export-btn" id="btn-export-notes-csv">
               Download .CSV
@@ -233,7 +319,7 @@
             <div class="export-card-info">
               <span class="export-tag all">ALL DATA</span>
               <h3 class="export-card-title">Full Vault Backup (.json)</h3>
-              <p class="export-card-desc">Single backup file with all saved words and notes combined.</p>
+              <p class="export-card-desc">Single backup file with all saved words and notes combined with colors and tags.</p>
             </div>
             <button class="btn btn-primary export-btn" id="btn-export-all-json">
               Download All .JSON
@@ -248,7 +334,7 @@
             <ol class="guide-steps">
               <li>In Anki, click <strong>File &gt; Import</strong> and select your downloaded <code>.csv</code> file.</li>
               <li>Set <strong>Field Separator</strong> to <strong>Comma</strong>.</li>
-              <li>Map <strong>Field 1 &rarr; Front</strong> (Word), <strong>Field 2 &rarr; Back</strong> (Translation), <strong>Field 3 &rarr; Definition / Notes</strong>.</li>
+              <li>Map <strong>Field 1 &rarr; Front</strong> (Word), <strong>Field 2 &rarr; Back</strong> (Translation), <strong>Field 3 &rarr; Definition</strong>, <strong>Field 5 &rarr; Tags</strong>.</li>
               <li>Click <strong>Import</strong> to start studying!</li>
             </ol>
           </div>

@@ -1,6 +1,7 @@
 /**
  * content.js - In-page modal dialog for Vocab & Notes Extension
  * Uses Shadow DOM for complete CSS isolation from host web pages.
+ * Supports Colors and Tagging directly from the in-page dialog.
  */
 
 (function () {
@@ -68,7 +69,7 @@
     }
 
     .vocab-header {
-      padding: 14px 18px;
+      padding: 12px 18px;
       border-bottom: 1px solid #e2e8f0;
       display: flex;
       align-items: center;
@@ -123,18 +124,18 @@
     }
 
     .vocab-body {
-      padding: 18px;
+      padding: 16px 18px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      max-height: 70vh;
+      gap: 12px;
+      max-height: 72vh;
       overflow-y: auto;
     }
 
     .vocab-field {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
     }
 
     .vocab-label {
@@ -155,8 +156,8 @@
     .vocab-input,
     .vocab-textarea {
       width: 100%;
-      padding: 8px 12px;
-      font-size: 14px;
+      padding: 7px 11px;
+      font-size: 13px;
       color: #0f172a;
       background-color: #ffffff;
       border: 1px solid #cbd5e1;
@@ -177,17 +178,51 @@
     }
 
     .vocab-textarea {
-      min-height: 84px;
+      min-height: 70px;
       resize: vertical;
       line-height: 1.45;
     }
+
+    /* Color Swatches */
+    .vocab-color-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 0;
+    }
+
+    .vocab-swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      padding: 0;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .vocab-swatch:hover {
+      transform: scale(1.15);
+    }
+
+    .vocab-swatch.active {
+      box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #0f172a;
+    }
+
+    .swatch-none { background-color: #94a3b8; }
+    .swatch-blue { background-color: #2563eb; }
+    .swatch-green { background-color: #16a34a; }
+    .swatch-yellow { background-color: #d97706; }
+    .swatch-red { background-color: #dc2626; }
+    .swatch-purple { background-color: #9333ea; }
+    .swatch-orange { background-color: #ea580c; }
 
     .vocab-meta-info {
       font-size: 11px;
       color: #64748b;
       word-break: break-all;
       background-color: #f8fafc;
-      padding: 8px 10px;
+      padding: 7px 10px;
       border-radius: 4px;
       border: 1px solid #e2e8f0;
     }
@@ -198,7 +233,7 @@
       background-color: #fef2f2;
       border: 1px solid #fecaca;
       border-radius: 4px;
-      padding: 8px 10px;
+      padding: 7px 10px;
       display: none;
     }
 
@@ -221,7 +256,7 @@
     }
 
     .vocab-footer {
-      padding: 12px 18px;
+      padding: 11px 18px;
       background-color: #f8fafc;
       border-top: 1px solid #e2e8f0;
       display: flex;
@@ -296,11 +331,32 @@
   }
 
   /**
+   * Helper to build Color Swatches HTML and attach events
+   */
+  function setupColorSwatches(container, initialColor, onColorChange) {
+    const colors = ['none', 'blue', 'green', 'yellow', 'red', 'purple', 'orange'];
+    colors.forEach((c) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `vocab-swatch swatch-${c} ${c === initialColor ? 'active' : ''}`;
+      btn.title = c === 'none' ? 'No color (Default)' : c.charAt(0).toUpperCase() + c.slice(1);
+      btn.addEventListener('click', () => {
+        container.querySelectorAll('.vocab-swatch').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        onColorChange(c);
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  /**
    * Modal: Save Word
    */
   function openSaveWordModal({ word, pageUrl, pageTitle }) {
     closeModal();
     const shadow = initShadowRoot();
+
+    let selectedColor = 'none';
 
     const container = document.createElement('div');
     container.className = 'vocab-backdrop';
@@ -333,11 +389,25 @@
             <span class="vocab-hint">Press Ctrl+Enter to save</span>
           </div>
 
-          ${pageUrl ? `
+          <div class="vocab-field">
+            <label class="vocab-label">Color Accent</label>
+            <div class="vocab-color-row" id="color-picker-row"></div>
+          </div>
+
+          <div class="vocab-field">
+            <label class="vocab-label">Tags <span style="font-weight: 400; color: #64748b;">(Comma separated)</span></label>
+            <input type="text" class="vocab-input" id="input-tags" placeholder="e.g. adjective, B2, travel" />
+          </div>
+
+          ${
+            pageUrl
+              ? `
             <div class="vocab-meta-info">
               <strong>Source:</strong> ${escapeHtml(pageTitle || pageUrl)}
             </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
 
         <div class="vocab-footer">
@@ -356,13 +426,17 @@
     const inputWord = shadow.getElementById('input-word');
     const inputTranslation = shadow.getElementById('input-translation');
     const inputDefinition = shadow.getElementById('input-definition');
+    const inputTags = shadow.getElementById('input-tags');
+    const colorPickerRow = shadow.getElementById('color-picker-row');
     const btnSave = shadow.getElementById('btn-save');
     const btnCancel = shadow.getElementById('btn-cancel');
     const btnClose = shadow.getElementById('btn-close');
     const errorBanner = shadow.getElementById('error-banner');
     const successToast = shadow.getElementById('success-toast');
 
-    // Auto focus translation since word is pre-filled
+    setupColorSwatches(colorPickerRow, selectedColor, (c) => (selectedColor = c));
+
+    // Auto focus translation
     setTimeout(() => {
       inputTranslation.focus();
     }, 50);
@@ -371,6 +445,7 @@
       const w = inputWord.value.trim();
       const t = inputTranslation.value.trim();
       const d = inputDefinition.value.trim();
+      const tags = inputTags.value.trim();
 
       if (!w) {
         showError('Please enter a word.');
@@ -393,6 +468,8 @@
           word: w,
           translation: t,
           definition: d,
+          color: selectedColor,
+          tags: tags,
           sourceUrl: pageUrl,
           sourceTitle: pageTitle
         });
@@ -434,7 +511,7 @@
       if (e.key === 'Escape') {
         closeModal();
       } else if (e.key === 'Enter') {
-        if (e.ctrlKey || e.metaKey || e.target === inputTranslation || e.target === inputWord) {
+        if (e.ctrlKey || e.metaKey || e.target === inputTranslation || e.target === inputWord || e.target === inputTags) {
           e.preventDefault();
           handleSave();
         }
@@ -450,6 +527,8 @@
   function openSaveNoteModal({ title, pageUrl, pageTitle }) {
     closeModal();
     const shadow = initShadowRoot();
+
+    let selectedColor = 'none';
 
     const container = document.createElement('div');
     container.className = 'vocab-backdrop';
@@ -473,15 +552,29 @@
 
           <div class="vocab-field">
             <label class="vocab-label">Note Body <span class="vocab-required">*</span></label>
-            <textarea class="vocab-textarea" id="input-body" style="min-height: 110px;" placeholder="Write your note body here..."></textarea>
+            <textarea class="vocab-textarea" id="input-body" style="min-height: 90px;" placeholder="Write your note body here..."></textarea>
             <span class="vocab-hint">Press Ctrl+Enter to save</span>
           </div>
 
-          ${pageUrl ? `
+          <div class="vocab-field">
+            <label class="vocab-label">Color Accent</label>
+            <div class="vocab-color-row" id="color-picker-row"></div>
+          </div>
+
+          <div class="vocab-field">
+            <label class="vocab-label">Tags <span style="font-weight: 400; color: #64748b;">(Comma separated)</span></label>
+            <input type="text" class="vocab-input" id="input-tags" placeholder="e.g. grammar, work, idea" />
+          </div>
+
+          ${
+            pageUrl
+              ? `
             <div class="vocab-meta-info">
               <strong>Source:</strong> ${escapeHtml(pageTitle || pageUrl)}
             </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
 
         <div class="vocab-footer">
@@ -499,13 +592,17 @@
 
     const inputTitle = shadow.getElementById('input-title');
     const inputBody = shadow.getElementById('input-body');
+    const inputTags = shadow.getElementById('input-tags');
+    const colorPickerRow = shadow.getElementById('color-picker-row');
     const btnSave = shadow.getElementById('btn-save');
     const btnCancel = shadow.getElementById('btn-cancel');
     const btnClose = shadow.getElementById('btn-close');
     const errorBanner = shadow.getElementById('error-banner');
     const successToast = shadow.getElementById('success-toast');
 
-    // Auto focus body since title is pre-filled
+    setupColorSwatches(colorPickerRow, selectedColor, (c) => (selectedColor = c));
+
+    // Auto focus body
     setTimeout(() => {
       inputBody.focus();
     }, 50);
@@ -513,6 +610,7 @@
     const handleSave = async () => {
       const t = inputTitle.value.trim();
       const b = inputBody.value.trim();
+      const tags = inputTags.value.trim();
 
       if (!t) {
         showError('Please enter a note title.');
@@ -534,6 +632,8 @@
         await VocabStorage.saveNote({
           title: t,
           body: b,
+          color: selectedColor,
+          tags: tags,
           sourceUrl: pageUrl,
           sourceTitle: pageTitle
         });
@@ -575,7 +675,7 @@
       if (e.key === 'Escape') {
         closeModal();
       } else if (e.key === 'Enter') {
-        if (e.ctrlKey || e.metaKey || (e.target === inputTitle && !e.shiftKey)) {
+        if (e.ctrlKey || e.metaKey || (e.target === inputTitle && !e.shiftKey) || e.target === inputTags) {
           e.preventDefault();
           handleSave();
         }
