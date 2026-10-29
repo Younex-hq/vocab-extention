@@ -3,113 +3,117 @@
  * Supports Theme Toggling (Dark/Light), Collapsible Filter Dropdown, and Backup Import/Export.
  */
 
-document.addEventListener('DOMContentLoaded', async () => {
-  'use strict';
+document.addEventListener("DOMContentLoaded", async () => {
+  "use strict";
 
   // State
-  let currentView = 'view-see-saves';
-  let currentSubTab = 'words';
+  let currentView = "view-see-saves";
+  let currentSubTab = "words";
   let cachedWords = [];
   let cachedNotes = [];
-  let activeTabUrl = '';
-  let currentTheme = 'light';
+  let activeTabUrl = "";
+  let currentTheme = "light";
 
   // Filter & Sort State
-  let searchQuery = '';
-  let sortOrder = 'date-desc';
-  let colorFilter = 'all';
-  let tagFilter = 'all';
-  let websiteFilter = 'all';
+  let searchQuery = "";
+  let sortOrder = "date-desc";
+  let colorFilter = "all";
+  let tagFilter = "all";
+  let websiteFilter = "all";
 
   // Form Colors
-  let addWordColor = 'none';
-  let addNoteColor = 'none';
-  let editItemColor = 'none';
+  let addWordColor = "none";
+  let addNoteColor = "none";
+  let editItemColor = "none";
 
   // Modals State
   let itemToEdit = null;
   let itemToDelete = null;
 
   // DOM Elements - Theme
-  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  const themeToggleBtn = document.getElementById("theme-toggle-btn");
 
   // DOM Elements - Navigation
-  const navBtns = document.querySelectorAll('.nav-btn');
-  const viewPanels = document.querySelectorAll('.view-panel');
-  const tabWordsBtn = document.getElementById('tab-words');
-  const tabNotesBtn = document.getElementById('tab-notes');
-  const wordsListEl = document.getElementById('words-list');
-  const notesListEl = document.getElementById('notes-list');
+  const navBtns = document.querySelectorAll(".nav-btn");
+  const viewPanels = document.querySelectorAll(".view-panel");
+  const tabWordsBtn = document.getElementById("tab-words");
+  const tabNotesBtn = document.getElementById("tab-notes");
+  const wordsListEl = document.getElementById("words-list");
+  const notesListEl = document.getElementById("notes-list");
 
   // DOM Elements - Badges & Stats
-  const badgeWordsCount = document.getElementById('badge-words-count');
-  const badgeNotesCount = document.getElementById('badge-notes-count');
-  const statWordsPill = document.getElementById('stat-words-pill');
-  const statNotesPill = document.getElementById('stat-notes-pill');
+  const badgeWordsCount = document.getElementById("badge-words-count");
+  const badgeNotesCount = document.getElementById("badge-notes-count");
+  const statWordsPill = document.getElementById("stat-words-pill");
+  const statNotesPill = document.getElementById("stat-notes-pill");
 
   // DOM Elements - Search & Collapsible Filters
-  const searchInput = document.getElementById('search-input');
-  const searchClearBtn = document.getElementById('search-clear-btn');
-  const btnToggleFilters = document.getElementById('btn-toggle-filters');
-  const filterActiveBadge = document.getElementById('filter-active-badge');
-  const filterDropdownPanel = document.getElementById('filter-dropdown-panel');
-  const btnCloseFilterDropdown = document.getElementById('btn-close-filter-dropdown');
-  const btnApplyFilters = document.getElementById('btn-apply-filters');
-  const sortSelect = document.getElementById('sort-select');
-  const filterColor = document.getElementById('filter-color');
-  const filterTag = document.getElementById('filter-tag');
-  const filterWebsite = document.getElementById('filter-website');
-  const btnResetFilters = document.getElementById('btn-reset-filters');
-  const filterStatusBar = document.getElementById('filter-status-bar');
-  const filterStatusText = document.getElementById('filter-status-text');
-  const btnQuickClearFilters = document.getElementById('btn-quick-clear-filters');
+  const searchInput = document.getElementById("search-input");
+  const searchClearBtn = document.getElementById("search-clear-btn");
+  const btnToggleFilters = document.getElementById("btn-toggle-filters");
+  const filterActiveBadge = document.getElementById("filter-active-badge");
+  const filterDropdownPanel = document.getElementById("filter-dropdown-panel");
+  const btnCloseFilterDropdown = document.getElementById(
+    "btn-close-filter-dropdown",
+  );
+  const btnApplyFilters = document.getElementById("btn-apply-filters");
+  const sortSelect = document.getElementById("sort-select");
+  const filterColor = document.getElementById("filter-color");
+  const filterTag = document.getElementById("filter-tag");
+  const filterWebsite = document.getElementById("filter-website");
+  const btnResetFilters = document.getElementById("btn-reset-filters");
+  const filterStatusBar = document.getElementById("filter-status-bar");
+  const filterStatusText = document.getElementById("filter-status-text");
+  const btnQuickClearFilters = document.getElementById(
+    "btn-quick-clear-filters",
+  );
 
   // DOM Elements - Add Word Form
-  const formAddWord = document.getElementById('form-add-word');
-  const wordInput = document.getElementById('word-input');
-  const translationInput = document.getElementById('translation-input');
-  const definitionInput = document.getElementById('definition-input');
-  const wordTagsInput = document.getElementById('word-tags-input');
-  const wordSourceUrl = document.getElementById('word-source-url');
-  const btnCancelAddWord = document.getElementById('btn-cancel-add-word');
-  const addWordColorPicker = document.getElementById('add-word-color-picker');
+  const formAddWord = document.getElementById("form-add-word");
+  const wordInput = document.getElementById("word-input");
+  const translationInput = document.getElementById("translation-input");
+  const definitionInput = document.getElementById("definition-input");
+  const wordTagsInput = document.getElementById("word-tags-input");
+  const wordSourceUrl = document.getElementById("word-source-url");
+  const btnCancelAddWord = document.getElementById("btn-cancel-add-word");
+  const addWordColorPicker = document.getElementById("add-word-color-picker");
 
   // DOM Elements - Add Note Form
-  const formAddNote = document.getElementById('form-add-note');
-  const noteTitleInput = document.getElementById('note-title-input');
-  const noteBodyInput = document.getElementById('note-body-input');
-  const noteTagsInput = document.getElementById('note-tags-input');
-  const noteSourceUrl = document.getElementById('note-source-url');
-  const btnCancelAddNote = document.getElementById('btn-cancel-add-note');
-  const addNoteColorPicker = document.getElementById('add-note-color-picker');
+  const formAddNote = document.getElementById("form-add-note");
+  const noteTitleInput = document.getElementById("note-title-input");
+  const noteBodyInput = document.getElementById("note-body-input");
+  const noteTagsInput = document.getElementById("note-tags-input");
+  const noteSourceUrl = document.getElementById("note-source-url");
+  const btnCancelAddNote = document.getElementById("btn-cancel-add-note");
+  const addNoteColorPicker = document.getElementById("add-note-color-picker");
 
   // DOM Elements - Import & Export
-  const importFileInput = document.getElementById('import-file-input');
-  const btnTriggerImport = document.getElementById('btn-trigger-import');
-  const importFeedbackBox = document.getElementById('import-feedback-box');
-  const btnExportWordsCsv = document.getElementById('btn-export-words-csv');
-  const btnExportWordsJson = document.getElementById('btn-export-words-json');
-  const btnExportNotesCsv = document.getElementById('btn-export-notes-csv');
-  const btnExportNotesJson = document.getElementById('btn-export-notes-json');
-  const btnExportAllJson = document.getElementById('btn-export-all-json');
+  const importFileInput = document.getElementById("import-file-input");
+  const btnTriggerImport = document.getElementById("btn-trigger-import");
+  const importFeedbackBox = document.getElementById("import-feedback-box");
+  const btnExportWordsCsv = document.getElementById("btn-export-words-csv");
+  const btnExportWordsJson = document.getElementById("btn-export-words-json");
+  const btnExportNotesCsv = document.getElementById("btn-export-notes-csv");
+  const btnExportNotesJson = document.getElementById("btn-export-notes-json");
+  const btnExportAllJson = document.getElementById("btn-export-all-json");
 
   // DOM Elements - Edit Modal
-  const editModal = document.getElementById('edit-modal');
-  const editModalTitle = document.getElementById('edit-modal-title');
-  const editModalBody = document.getElementById('edit-modal-body');
-  const btnSaveEdit = document.getElementById('btn-save-edit');
-  const btnCancelEdit = document.getElementById('btn-cancel-edit');
-  const btnCloseEditModal = document.getElementById('btn-close-edit-modal');
+  const editModal = document.getElementById("edit-modal");
+  const editModalTitle = document.getElementById("edit-modal-title");
+  const editModalBody = document.getElementById("edit-modal-body");
+  const btnSaveEdit = document.getElementById("btn-save-edit");
+  const btnCancelEdit = document.getElementById("btn-cancel-edit");
+  const btnCloseEditModal = document.getElementById("btn-close-edit-modal");
 
   // DOM Elements - Delete Modal
-  const deleteModal = document.getElementById('delete-modal');
-  const deleteModalPrompt = document.getElementById('delete-modal-prompt');
-  const btnConfirmDelete = document.getElementById('btn-confirm-delete');
-  const btnCancelDelete = document.getElementById('btn-cancel-delete');
-  const btnCloseDeleteModal = document.getElementById('btn-close-delete-modal');
+  const deleteModal = document.getElementById("delete-modal");
+  const deleteModalPrompt = document.getElementById("delete-modal-prompt");
+  const btnConfirmDelete = document.getElementById("btn-confirm-delete");
+  const btnCancelDelete = document.getElementById("btn-cancel-delete");
+  const btnCloseDeleteModal = document.getElementById("btn-close-delete-modal");
 
   // Toast
-  const toastContainer = document.getElementById('toast-container');
+  const toastContainer = document.getElementById("toast-container");
 
   // -------------------------------------------------------------
   // THEME MANAGEMENT (Dark / Light)
@@ -119,26 +123,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       currentTheme = await VocabStorage.getTheme();
     } catch {
-      currentTheme = 'light';
+      currentTheme = "light";
     }
     applyTheme(currentTheme);
   }
 
   function applyTheme(theme) {
     currentTheme = theme;
-    if (theme === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      themeToggleBtn.textContent = '☀️';
-      themeToggleBtn.title = 'Switch to Light Mode';
+    if (theme === "dark") {
+      document.documentElement.setAttribute("data-theme", "dark");
+      themeToggleBtn.textContent = "☀️";
+      themeToggleBtn.title = "Switch to Light Mode";
     } else {
-      document.documentElement.removeAttribute('data-theme');
-      themeToggleBtn.textContent = '🌙';
-      themeToggleBtn.title = 'Switch to Dark Mode';
+      document.documentElement.removeAttribute("data-theme");
+      themeToggleBtn.textContent = "🌙";
+      themeToggleBtn.title = "Switch to Dark Mode";
     }
   }
 
-  themeToggleBtn.addEventListener('click', async () => {
-    const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  themeToggleBtn.addEventListener("click", async () => {
+    const nextTheme = currentTheme === "dark" ? "light" : "dark";
     applyTheme(nextTheme);
     await VocabStorage.setTheme(nextTheme);
   });
@@ -148,23 +152,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
 
   function renderColorPicker(container, currentColor, onChange) {
-    container.innerHTML = '';
+    container.innerHTML = "";
     VocabStorage.VALID_COLORS.forEach((c) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `color-swatch-btn swatch-${c} ${c === currentColor ? 'active' : ''}`;
-      btn.title = c === 'none' ? 'No color (Default)' : c.charAt(0).toUpperCase() + c.slice(1);
-      btn.addEventListener('click', () => {
-        container.querySelectorAll('.color-swatch-btn').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `color-swatch-btn swatch-${c} ${c === currentColor ? "active" : ""}`;
+      btn.title =
+        c === "none"
+          ? "No color (Default)"
+          : c.charAt(0).toUpperCase() + c.slice(1);
+      btn.addEventListener("click", () => {
+        container
+          .querySelectorAll(".color-swatch-btn")
+          .forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
         onChange(c);
       });
       container.appendChild(btn);
     });
   }
 
-  renderColorPicker(addWordColorPicker, addWordColor, (c) => (addWordColor = c));
-  renderColorPicker(addNoteColorPicker, addNoteColor, (c) => (addNoteColor = c));
+  renderColorPicker(
+    addWordColorPicker,
+    addWordColor,
+    (c) => (addWordColor = c),
+  );
+  renderColorPicker(
+    addNoteColorPicker,
+    addNoteColor,
+    (c) => (addNoteColor = c),
+  );
 
   // -------------------------------------------------------------
   // INITIALIZATION
@@ -173,17 +190,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initTheme();
 
   try {
-    const extAPI = (typeof browser !== 'undefined' && browser && browser.tabs) ? browser : chrome;
+    const extAPI =
+      typeof browser !== "undefined" && browser && browser.tabs
+        ? browser
+        : chrome;
     if (extAPI && extAPI.tabs) {
       let tabs;
       const res = extAPI.tabs.query({ active: true, currentWindow: true });
-      if (res && typeof res.then === 'function') {
+      if (res && typeof res.then === "function") {
         tabs = await res;
       } else {
-        tabs = await new Promise((resolve) => extAPI.tabs.query({ active: true, currentWindow: true }, resolve));
+        tabs = await new Promise((resolve) =>
+          extAPI.tabs.query({ active: true, currentWindow: true }, resolve),
+        );
       }
       const tab = tabs && tabs[0];
-      if (tab && tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('about:')) {
+      if (
+        tab &&
+        tab.url &&
+        !tab.url.startsWith("chrome://") &&
+        !tab.url.startsWith("about:")
+      ) {
         activeTabUrl = tab.url;
         wordSourceUrl.value = activeTabUrl;
         noteSourceUrl.value = activeTabUrl;
@@ -202,29 +229,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   function switchView(targetViewId) {
     currentView = targetViewId;
     navBtns.forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.view === targetViewId);
+      btn.classList.toggle("active", btn.dataset.view === targetViewId);
     });
     viewPanels.forEach((panel) => {
-      panel.classList.toggle('active', panel.id === targetViewId);
+      panel.classList.toggle("active", panel.id === targetViewId);
     });
 
-    if (targetViewId === 'view-add-word') {
+    if (targetViewId === "view-add-word") {
       setTimeout(() => wordInput.focus(), 50);
-    } else if (targetViewId === 'view-add-note') {
+    } else if (targetViewId === "view-add-note") {
       setTimeout(() => noteTitleInput.focus(), 50);
-    } else if (targetViewId === 'view-see-saves') {
+    } else if (targetViewId === "view-see-saves") {
       renderLists();
     }
   }
 
   navBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener("click", () => {
       switchView(btn.dataset.view);
     });
   });
 
-  btnCancelAddWord.addEventListener('click', () => switchView('view-see-saves'));
-  btnCancelAddNote.addEventListener('click', () => switchView('view-see-saves'));
+  btnCancelAddWord.addEventListener("click", () =>
+    switchView("view-see-saves"),
+  );
+  btnCancelAddNote.addEventListener("click", () =>
+    switchView("view-see-saves"),
+  );
 
   // -------------------------------------------------------------
   // SUBTABS (WORDS / NOTES)
@@ -232,23 +263,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function switchSubTab(tabName) {
     currentSubTab = tabName;
-    tabWordsBtn.classList.toggle('active', tabName === 'words');
-    tabNotesBtn.classList.toggle('active', tabName === 'notes');
+    tabWordsBtn.classList.toggle("active", tabName === "words");
+    tabNotesBtn.classList.toggle("active", tabName === "notes");
 
-    if (tabName === 'words') {
-      wordsListEl.style.display = 'flex';
-      notesListEl.style.display = 'none';
+    if (tabName === "words") {
+      wordsListEl.style.display = "flex";
+      notesListEl.style.display = "none";
     } else {
-      wordsListEl.style.display = 'none';
-      notesListEl.style.display = 'flex';
+      wordsListEl.style.display = "none";
+      notesListEl.style.display = "flex";
     }
 
     populateDynamicFilters();
     renderLists();
   }
 
-  tabWordsBtn.addEventListener('click', () => switchSubTab('words'));
-  tabNotesBtn.addEventListener('click', () => switchSubTab('notes'));
+  tabWordsBtn.addEventListener("click", () => switchSubTab("words"));
+  tabNotesBtn.addEventListener("click", () => switchSubTab("notes"));
 
   // -------------------------------------------------------------
   // DATA LOADING & POPULATION
@@ -263,8 +294,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       populateDynamicFilters();
       renderLists();
     } catch (err) {
-      console.error('Error loading data:', err);
-      showToast('Error loading saves');
+      console.error("Error loading data:", err);
+      showToast("Error loading saves");
     }
   }
 
@@ -274,12 +305,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     badgeWordsCount.textContent = wCount;
     badgeNotesCount.textContent = nCount;
-    statWordsPill.textContent = `${wCount} word${wCount === 1 ? '' : 's'}`;
-    statNotesPill.textContent = `${nCount} note${nCount === 1 ? '' : 's'}`;
+    statWordsPill.textContent = `${wCount} word${wCount === 1 ? "" : "s"}`;
+    statNotesPill.textContent = `${nCount} note${nCount === 1 ? "" : "s"}`;
   }
 
   function populateDynamicFilters() {
-    const activeItems = currentSubTab === 'words' ? cachedWords : cachedNotes;
+    const activeItems = currentSubTab === "words" ? cachedWords : cachedNotes;
 
     // Collect Unique Tags
     const tagsSet = new Set();
@@ -292,7 +323,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const prevTag = filterTag.value;
     filterTag.innerHTML = '<option value="all">All Tags</option>';
     uniqueTags.forEach((tag) => {
-      const opt = document.createElement('option');
+      const opt = document.createElement("option");
       opt.value = tag;
       opt.textContent = `#${tag}`;
       filterTag.appendChild(opt);
@@ -301,8 +332,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       filterTag.value = prevTag;
       tagFilter = prevTag;
     } else {
-      filterTag.value = 'all';
-      tagFilter = 'all';
+      filterTag.value = "all";
+      tagFilter = "all";
     }
 
     // Collect Unique Websites
@@ -317,7 +348,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const prevSite = filterWebsite.value;
     filterWebsite.innerHTML = '<option value="all">All Websites</option>';
     uniqueDomains.forEach((site) => {
-      const opt = document.createElement('option');
+      const opt = document.createElement("option");
       opt.value = site;
       opt.textContent = site;
       filterWebsite.appendChild(opt);
@@ -326,8 +357,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       filterWebsite.value = prevSite;
       websiteFilter = prevSite;
     } else {
-      filterWebsite.value = 'all';
-      websiteFilter = 'all';
+      filterWebsite.value = "all";
+      websiteFilter = "all";
     }
 
     updateFilterButtonBadge();
@@ -338,39 +369,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
 
   function toggleFilterDropdown() {
-    const isOpen = filterDropdownPanel.style.display !== 'none';
+    const isOpen = filterDropdownPanel.style.display !== "none";
     if (isOpen) {
-      filterDropdownPanel.style.display = 'none';
-      btnToggleFilters.classList.remove('is-open');
+      filterDropdownPanel.style.display = "none";
+      btnToggleFilters.classList.remove("is-open");
     } else {
-      filterDropdownPanel.style.display = 'flex';
-      btnToggleFilters.classList.add('is-open');
+      filterDropdownPanel.style.display = "flex";
+      btnToggleFilters.classList.add("is-open");
     }
   }
 
   function closeFilterDropdown() {
-    filterDropdownPanel.style.display = 'none';
-    btnToggleFilters.classList.remove('is-open');
+    filterDropdownPanel.style.display = "none";
+    btnToggleFilters.classList.remove("is-open");
   }
 
-  btnToggleFilters.addEventListener('click', toggleFilterDropdown);
-  btnCloseFilterDropdown.addEventListener('click', closeFilterDropdown);
-  btnApplyFilters.addEventListener('click', closeFilterDropdown);
+  btnToggleFilters.addEventListener("click", toggleFilterDropdown);
+  btnCloseFilterDropdown.addEventListener("click", closeFilterDropdown);
+  btnApplyFilters.addEventListener("click", closeFilterDropdown);
 
   function updateFilterButtonBadge() {
     let count = 0;
-    if (colorFilter !== 'all') count++;
-    if (tagFilter !== 'all') count++;
-    if (websiteFilter !== 'all') count++;
-    if (sortOrder !== 'date-desc') count++;
+    if (colorFilter !== "all") count++;
+    if (tagFilter !== "all") count++;
+    if (websiteFilter !== "all") count++;
+    if (sortOrder !== "date-desc") count++;
 
     if (count > 0) {
       filterActiveBadge.textContent = count;
-      filterActiveBadge.style.display = 'inline-block';
-      btnToggleFilters.classList.add('has-filters');
+      filterActiveBadge.style.display = "inline-block";
+      btnToggleFilters.classList.add("has-filters");
     } else {
-      filterActiveBadge.style.display = 'none';
-      btnToggleFilters.classList.remove('has-filters');
+      filterActiveBadge.style.display = "none";
+      btnToggleFilters.classList.remove("has-filters");
     }
   }
 
@@ -384,22 +415,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 1. Filter
     let filtered = items.filter((item) => {
       if (q) {
-        const titleMatch = (type === 'word' ? item.word : item.title).toLowerCase().includes(q);
-        const bodyMatch = (type === 'word' ? (item.translation + ' ' + (item.definition || '')) : (item.body || '')).toLowerCase().includes(q);
-        const tagMatch = (item.tags || []).some((t) => t.toLowerCase().includes(q));
+        const titleMatch = (type === "word" ? item.word : item.title)
+          .toLowerCase()
+          .includes(q);
+        const bodyMatch = (
+          type === "word"
+            ? item.translation + " " + (item.definition || "")
+            : item.body || ""
+        )
+          .toLowerCase()
+          .includes(q);
+        const tagMatch = (item.tags || []).some((t) =>
+          t.toLowerCase().includes(q),
+        );
         if (!titleMatch && !bodyMatch && !tagMatch) return false;
       }
 
-      if (colorFilter !== 'all') {
-        const itemColor = item.color || 'none';
+      if (colorFilter !== "all") {
+        const itemColor = item.color || "none";
         if (itemColor !== colorFilter) return false;
       }
 
-      if (tagFilter !== 'all') {
+      if (tagFilter !== "all") {
         if (!item.tags || !item.tags.includes(tagFilter)) return false;
       }
 
-      if (websiteFilter !== 'all') {
+      if (websiteFilter !== "all") {
         const domain = VocabStorage.extractDomain(item.sourceUrl);
         if (domain !== websiteFilter) return false;
       }
@@ -409,20 +450,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 2. Sort
     filtered.sort((a, b) => {
-      if (sortOrder === 'date-desc') {
+      if (sortOrder === "date-desc") {
         return new Date(b.createdAt) - new Date(a.createdAt);
       }
-      if (sortOrder === 'date-asc') {
+      if (sortOrder === "date-asc") {
         return new Date(a.createdAt) - new Date(b.createdAt);
       }
-      if (sortOrder === 'alpha-asc') {
-        const aVal = (type === 'word' ? a.word : a.title).toLowerCase();
-        const bVal = (type === 'word' ? b.word : b.title).toLowerCase();
+      if (sortOrder === "alpha-asc") {
+        const aVal = (type === "word" ? a.word : a.title).toLowerCase();
+        const bVal = (type === "word" ? b.word : b.title).toLowerCase();
         return aVal.localeCompare(bVal);
       }
-      if (sortOrder === 'alpha-desc') {
-        const aVal = (type === 'word' ? a.word : a.title).toLowerCase();
-        const bVal = (type === 'word' ? b.word : b.title).toLowerCase();
+      if (sortOrder === "alpha-desc") {
+        const aVal = (type === "word" ? a.word : a.title).toLowerCase();
+        const bVal = (type === "word" ? b.word : b.title).toLowerCase();
         return bVal.localeCompare(aVal);
       }
       return 0;
@@ -433,17 +474,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateFilterStatusBar(totalCount, filteredCount) {
     const isFiltered =
-      searchQuery !== '' ||
-      colorFilter !== 'all' ||
-      tagFilter !== 'all' ||
-      websiteFilter !== 'all' ||
-      sortOrder !== 'date-desc';
+      searchQuery !== "" ||
+      colorFilter !== "all" ||
+      tagFilter !== "all" ||
+      websiteFilter !== "all" ||
+      sortOrder !== "date-desc";
 
     if (isFiltered) {
-      filterStatusBar.style.display = 'flex';
+      filterStatusBar.style.display = "flex";
       filterStatusText.textContent = `Showing ${filteredCount} of ${totalCount} items (Filtered)`;
     } else {
-      filterStatusBar.style.display = 'none';
+      filterStatusBar.style.display = "none";
     }
   }
 
@@ -452,42 +493,48 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
 
   function formatDate(isoStr) {
-    if (!isoStr) return '';
+    if (!isoStr) return "";
     try {
       const d = new Date(isoStr);
       return d.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
+        month: "short",
+        day: "numeric",
+        year: "numeric",
       });
     } catch {
-      return '';
+      return "";
     }
   }
 
   function escapeHtml(str) {
-    if (!str) return '';
+    if (!str) return "";
     return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   function cleanUrl(url) {
     try {
       const u = new URL(url);
-      return u.hostname + (u.pathname.length > 1 ? u.pathname.substring(0, 20) + '...' : '');
+      return (
+        u.hostname +
+        (u.pathname.length > 1 ? u.pathname.substring(0, 20) + "..." : "")
+      );
     } catch {
-      return url.substring(0, 25) + '...';
+      return url.substring(0, 25) + "...";
     }
   }
 
   function renderLists() {
-    const isWordsTab = currentSubTab === 'words';
+    const isWordsTab = currentSubTab === "words";
     const activeItems = isWordsTab ? cachedWords : cachedNotes;
-    const filtered = getSortedAndFilteredItems(activeItems, isWordsTab ? 'word' : 'note');
+    const filtered = getSortedAndFilteredItems(
+      activeItems,
+      isWordsTab ? "word" : "note",
+    );
 
     updateFilterStatusBar(activeItems.length, filtered.length);
     updateFilterButtonBadge();
@@ -504,7 +551,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderWordsList(filteredWords) {
     if (filteredWords.length === 0) {
       const isFiltered =
-        searchQuery || colorFilter !== 'all' || tagFilter !== 'all' || websiteFilter !== 'all';
+        searchQuery ||
+        colorFilter !== "all" ||
+        tagFilter !== "all" ||
+        websiteFilter !== "all";
 
       if (isFiltered) {
         wordsListEl.innerHTML = `
@@ -515,7 +565,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             <button class="btn btn-secondary" id="empty-reset-filters-btn" style="margin-top: 6px;">Reset Filters</button>
           </div>
         `;
-        document.getElementById('empty-reset-filters-btn')?.addEventListener('click', resetAllFilters);
+        document
+          .getElementById("empty-reset-filters-btn")
+          ?.addEventListener("click", resetAllFilters);
       } else {
         wordsListEl.innerHTML = `
           <div class="empty-state">
@@ -525,25 +577,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             <button class="btn btn-secondary" id="empty-add-word-btn" style="margin-top: 6px;">+ Add Word</button>
           </div>
         `;
-        document.getElementById('empty-add-word-btn')?.addEventListener('click', () => {
-          switchView('view-add-word');
-        });
+        document
+          .getElementById("empty-add-word-btn")
+          ?.addEventListener("click", () => {
+            switchView("view-add-word");
+          });
       }
       return;
     }
 
     wordsListEl.innerHTML = filteredWords
       .map((w) => {
-        const itemColor = w.color || 'none';
-        const colorClass = itemColor !== 'none' ? `card-color-${itemColor}` : '';
+        const itemColor = w.color || "none";
+        const colorClass =
+          itemColor !== "none" ? `card-color-${itemColor}` : "";
         const dotHtml =
-          itemColor !== 'none' ? `<span class="card-color-dot dot-${itemColor}"></span>` : '';
+          itemColor !== "none"
+            ? `<span class="card-color-dot dot-${itemColor}"></span>`
+            : "";
         const tagsHtml =
           w.tags && w.tags.length > 0
             ? `<div class="card-tags">${w.tags
-                .map((t) => `<span class="card-tag" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</span>`)
-                .join('')}</div>`
-            : '';
+                .map(
+                  (t) =>
+                    `<span class="card-tag" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</span>`,
+                )
+                .join("")}</div>`
+            : "";
 
         return `
           <div class="item-card ${colorClass}" data-id="${w.id}">
@@ -558,26 +618,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <button class="card-action-btn delete-btn delete-word-btn" data-id="${w.id}" title="Delete word">🗑️</button>
               </div>
             </div>
-            ${w.definition ? `<div class="card-definition">${escapeHtml(w.definition)}</div>` : ''}
+            ${w.definition ? `<div class="card-definition">${escapeHtml(w.definition)}</div>` : ""}
             ${tagsHtml}
             <div class="card-footer">
               <span>${formatDate(w.createdAt)}</span>
               ${
                 w.sourceUrl
-                  ? `<a href="${escapeHtml(w.sourceUrl)}" target="_blank" class="card-source-link" title="${escapeHtml(w.sourceUrl)}">🔗 ${escapeHtml(cleanUrl(w.sourceUrl))}</a>`
-                  : ''
+                  ? `<a href="${escapeHtml(w.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="card-source-link" title="${escapeHtml(w.sourceUrl)}">🔗 ${escapeHtml(cleanUrl(w.sourceUrl))}</a>`
+                  : ""
               }
             </div>
           </div>
         `;
       })
-      .join('');
+      .join("");
   }
 
   function renderNotesList(filteredNotes) {
     if (filteredNotes.length === 0) {
       const isFiltered =
-        searchQuery || colorFilter !== 'all' || tagFilter !== 'all' || websiteFilter !== 'all';
+        searchQuery ||
+        colorFilter !== "all" ||
+        tagFilter !== "all" ||
+        websiteFilter !== "all";
 
       if (isFiltered) {
         notesListEl.innerHTML = `
@@ -588,7 +651,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             <button class="btn btn-secondary" id="empty-reset-filters-btn-notes" style="margin-top: 6px;">Reset Filters</button>
           </div>
         `;
-        document.getElementById('empty-reset-filters-btn-notes')?.addEventListener('click', resetAllFilters);
+        document
+          .getElementById("empty-reset-filters-btn-notes")
+          ?.addEventListener("click", resetAllFilters);
       } else {
         notesListEl.innerHTML = `
           <div class="empty-state">
@@ -598,25 +663,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             <button class="btn btn-secondary" id="empty-add-note-btn" style="margin-top: 6px;">+ Add Note</button>
           </div>
         `;
-        document.getElementById('empty-add-note-btn')?.addEventListener('click', () => {
-          switchView('view-add-note');
-        });
+        document
+          .getElementById("empty-add-note-btn")
+          ?.addEventListener("click", () => {
+            switchView("view-add-note");
+          });
       }
       return;
     }
 
     notesListEl.innerHTML = filteredNotes
       .map((n) => {
-        const itemColor = n.color || 'none';
-        const colorClass = itemColor !== 'none' ? `card-color-${itemColor}` : '';
+        const itemColor = n.color || "none";
+        const colorClass =
+          itemColor !== "none" ? `card-color-${itemColor}` : "";
         const dotHtml =
-          itemColor !== 'none' ? `<span class="card-color-dot dot-${itemColor}"></span>` : '';
+          itemColor !== "none"
+            ? `<span class="card-color-dot dot-${itemColor}"></span>`
+            : "";
         const tagsHtml =
           n.tags && n.tags.length > 0
             ? `<div class="card-tags">${n.tags
-                .map((t) => `<span class="card-tag" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</span>`)
-                .join('')}</div>`
-            : '';
+                .map(
+                  (t) =>
+                    `<span class="card-tag" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</span>`,
+                )
+                .join("")}</div>`
+            : "";
 
         return `
           <div class="item-card ${colorClass}" data-id="${n.id}">
@@ -636,56 +709,56 @@ document.addEventListener('DOMContentLoaded', async () => {
               <span>${formatDate(n.createdAt)}</span>
               ${
                 n.sourceUrl
-                  ? `<a href="${escapeHtml(n.sourceUrl)}" target="_blank" class="card-source-link" title="${escapeHtml(n.sourceUrl)}">🔗 ${escapeHtml(cleanUrl(n.sourceUrl))}</a>`
-                  : ''
+                  ? `<a href="${escapeHtml(n.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="card-source-link" title="${escapeHtml(n.sourceUrl)}">🔗 ${escapeHtml(cleanUrl(n.sourceUrl))}</a>`
+                  : ""
               }
             </div>
           </div>
         `;
       })
-      .join('');
+      .join("");
   }
 
   function attachCardEventListeners() {
     // Word Edit
-    document.querySelectorAll('.edit-word-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
+    document.querySelectorAll(".edit-word-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
         const id = btn.dataset.id;
         const item = cachedWords.find((w) => w.id === id);
-        if (item) openEditModal('word', item);
+        if (item) openEditModal("word", item);
       });
     });
 
     // Word Delete
-    document.querySelectorAll('.delete-word-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
+    document.querySelectorAll(".delete-word-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
         const id = btn.dataset.id;
         const item = cachedWords.find((w) => w.id === id);
-        if (item) openDeleteModal('word', item);
+        if (item) openDeleteModal("word", item);
       });
     });
 
     // Note Edit
-    document.querySelectorAll('.edit-note-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
+    document.querySelectorAll(".edit-note-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
         const id = btn.dataset.id;
         const item = cachedNotes.find((n) => n.id === id);
-        if (item) openEditModal('note', item);
+        if (item) openEditModal("note", item);
       });
     });
 
     // Note Delete
-    document.querySelectorAll('.delete-note-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
+    document.querySelectorAll(".delete-note-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
         const id = btn.dataset.id;
         const item = cachedNotes.find((n) => n.id === id);
-        if (item) openDeleteModal('note', item);
+        if (item) openDeleteModal("note", item);
       });
     });
 
     // Click Tag to Filter
-    document.querySelectorAll('.card-tag').forEach((pill) => {
-      pill.addEventListener('click', () => {
+    document.querySelectorAll(".card-tag").forEach((pill) => {
+      pill.addEventListener("click", () => {
         const t = pill.dataset.tag;
         if (t) {
           filterTag.value = t;
@@ -700,68 +773,68 @@ document.addEventListener('DOMContentLoaded', async () => {
   // FILTERS & SORT LISTENERS
   // -------------------------------------------------------------
 
-  searchInput.addEventListener('input', () => {
+  searchInput.addEventListener("input", () => {
     searchQuery = searchInput.value;
-    searchClearBtn.style.display = searchQuery ? 'block' : 'none';
+    searchClearBtn.style.display = searchQuery ? "block" : "none";
     renderLists();
   });
 
-  searchClearBtn.addEventListener('click', () => {
-    searchInput.value = '';
-    searchQuery = '';
-    searchClearBtn.style.display = 'none';
+  searchClearBtn.addEventListener("click", () => {
+    searchInput.value = "";
+    searchQuery = "";
+    searchClearBtn.style.display = "none";
     renderLists();
     searchInput.focus();
   });
 
-  sortSelect.addEventListener('change', () => {
+  sortSelect.addEventListener("change", () => {
     sortOrder = sortSelect.value;
     renderLists();
   });
 
-  filterColor.addEventListener('change', () => {
+  filterColor.addEventListener("change", () => {
     colorFilter = filterColor.value;
     renderLists();
   });
 
-  filterTag.addEventListener('change', () => {
+  filterTag.addEventListener("change", () => {
     tagFilter = filterTag.value;
     renderLists();
   });
 
-  filterWebsite.addEventListener('change', () => {
+  filterWebsite.addEventListener("change", () => {
     websiteFilter = filterWebsite.value;
     renderLists();
   });
 
   function resetAllFilters() {
-    searchQuery = '';
-    searchInput.value = '';
-    searchClearBtn.style.display = 'none';
+    searchQuery = "";
+    searchInput.value = "";
+    searchClearBtn.style.display = "none";
 
-    sortOrder = 'date-desc';
-    sortSelect.value = 'date-desc';
+    sortOrder = "date-desc";
+    sortSelect.value = "date-desc";
 
-    colorFilter = 'all';
-    filterColor.value = 'all';
+    colorFilter = "all";
+    filterColor.value = "all";
 
-    tagFilter = 'all';
-    filterTag.value = 'all';
+    tagFilter = "all";
+    filterTag.value = "all";
 
-    websiteFilter = 'all';
-    filterWebsite.value = 'all';
+    websiteFilter = "all";
+    filterWebsite.value = "all";
 
     renderLists();
   }
 
-  btnResetFilters.addEventListener('click', resetAllFilters);
-  btnQuickClearFilters.addEventListener('click', resetAllFilters);
+  btnResetFilters.addEventListener("click", resetAllFilters);
+  btnQuickClearFilters.addEventListener("click", resetAllFilters);
 
   // -------------------------------------------------------------
   // FORM: ADD WORD
   // -------------------------------------------------------------
 
-  formAddWord.addEventListener('submit', async (e) => {
+  formAddWord.addEventListener("submit", async (e) => {
     e.preventDefault();
     const word = wordInput.value.trim();
     const translation = translationInput.value.trim();
@@ -770,7 +843,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sourceUrl = wordSourceUrl.value.trim();
 
     if (!word || !translation) {
-      showToast('Word and Translation are required');
+      showToast("Word and Translation are required");
       return;
     }
 
@@ -781,25 +854,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         definition,
         color: addWordColor,
         tags: rawTags,
-        sourceUrl
+        sourceUrl,
       });
 
-      wordInput.value = '';
-      translationInput.value = '';
-      definitionInput.value = '';
-      wordTagsInput.value = '';
-      addWordColor = 'none';
-      renderColorPicker(addWordColorPicker, addWordColor, (c) => (addWordColor = c));
+      wordInput.value = "";
+      translationInput.value = "";
+      definitionInput.value = "";
+      wordTagsInput.value = "";
+      addWordColor = "none";
+      renderColorPicker(
+        addWordColorPicker,
+        addWordColor,
+        (c) => (addWordColor = c),
+      );
 
-      if (!activeTabUrl) wordSourceUrl.value = '';
+      if (!activeTabUrl) wordSourceUrl.value = "";
 
       await loadAllData();
-      showToast('✓ Word saved successfully!');
-      switchSubTab('words');
-      switchView('view-see-saves');
+      showToast("✓ Word saved successfully!");
+      switchSubTab("words");
+      switchView("view-see-saves");
     } catch (err) {
       console.error(err);
-      showToast('Error saving word: ' + err.message);
+      showToast("Error saving word: " + err.message);
     }
   });
 
@@ -807,7 +884,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // FORM: ADD NOTE
   // -------------------------------------------------------------
 
-  formAddNote.addEventListener('submit', async (e) => {
+  formAddNote.addEventListener("submit", async (e) => {
     e.preventDefault();
     const title = noteTitleInput.value.trim();
     const body = noteBodyInput.value.trim();
@@ -815,7 +892,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sourceUrl = noteSourceUrl.value.trim();
 
     if (!title || !body) {
-      showToast('Title and Body are required');
+      showToast("Title and Body are required");
       return;
     }
 
@@ -825,24 +902,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         body,
         color: addNoteColor,
         tags: rawTags,
-        sourceUrl
+        sourceUrl,
       });
 
-      noteTitleInput.value = '';
-      noteBodyInput.value = '';
-      noteTagsInput.value = '';
-      addNoteColor = 'none';
-      renderColorPicker(addNoteColorPicker, addNoteColor, (c) => (addNoteColor = c));
+      noteTitleInput.value = "";
+      noteBodyInput.value = "";
+      noteTagsInput.value = "";
+      addNoteColor = "none";
+      renderColorPicker(
+        addNoteColorPicker,
+        addNoteColor,
+        (c) => (addNoteColor = c),
+      );
 
-      if (!activeTabUrl) noteSourceUrl.value = '';
+      if (!activeTabUrl) noteSourceUrl.value = "";
 
       await loadAllData();
-      showToast('✓ Note saved successfully!');
-      switchSubTab('notes');
-      switchView('view-see-saves');
+      showToast("✓ Note saved successfully!");
+      switchSubTab("notes");
+      switchView("view-see-saves");
     } catch (err) {
       console.error(err);
-      showToast('Error saving note: ' + err.message);
+      showToast("Error saving note: " + err.message);
     }
   });
 
@@ -852,10 +933,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function openEditModal(type, item) {
     itemToEdit = { type, item };
-    editItemColor = item.color || 'none';
-    editModalTitle.textContent = type === 'word' ? 'Edit Word' : 'Edit Note';
+    editItemColor = item.color || "none";
+    editModalTitle.textContent = type === "word" ? "Edit Word" : "Edit Note";
 
-    if (type === 'word') {
+    if (type === "word") {
       editModalBody.innerHTML = `
         <div class="form-group">
           <label class="form-label">Word <span class="req">*</span></label>
@@ -867,7 +948,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         <div class="form-group">
           <label class="form-label">Definition</label>
-          <textarea id="edit-def-val" class="form-textarea" rows="2">${escapeHtml(item.definition || '')}</textarea>
+          <textarea id="edit-def-val" class="form-textarea" rows="2">${escapeHtml(item.definition || "")}</textarea>
         </div>
         <div class="form-group">
           <label class="form-label">Color Accent</label>
@@ -875,7 +956,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         <div class="form-group">
           <label class="form-label">Tags (Comma separated)</label>
-          <input type="text" id="edit-tags-val" class="form-input" value="${escapeHtml((item.tags || []).join(', '))}" />
+          <input type="text" id="edit-tags-val" class="form-input" value="${escapeHtml((item.tags || []).join(", "))}" />
         </div>
       `;
     } else {
@@ -886,7 +967,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         <div class="form-group">
           <label class="form-label">Body <span class="req">*</span></label>
-          <textarea id="edit-body-val" class="form-textarea" rows="4">${escapeHtml(item.body || '')}</textarea>
+          <textarea id="edit-body-val" class="form-textarea" rows="4">${escapeHtml(item.body || "")}</textarea>
         </div>
         <div class="form-group">
           <label class="form-label">Color Accent</label>
@@ -894,37 +975,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         <div class="form-group">
           <label class="form-label">Tags (Comma separated)</label>
-          <input type="text" id="edit-tags-val" class="form-input" value="${escapeHtml((item.tags || []).join(', '))}" />
+          <input type="text" id="edit-tags-val" class="form-input" value="${escapeHtml((item.tags || []).join(", "))}" />
         </div>
       `;
     }
 
-    const editColorPicker = document.getElementById('edit-color-picker');
-    renderColorPicker(editColorPicker, editItemColor, (c) => (editItemColor = c));
+    const editColorPicker = document.getElementById("edit-color-picker");
+    renderColorPicker(
+      editColorPicker,
+      editItemColor,
+      (c) => (editItemColor = c),
+    );
 
-    editModal.style.display = 'flex';
+    editModal.style.display = "flex";
   }
 
   function closeEditModal() {
-    editModal.style.display = 'none';
+    editModal.style.display = "none";
     itemToEdit = null;
   }
 
-  btnCloseEditModal.addEventListener('click', closeEditModal);
-  btnCancelEdit.addEventListener('click', closeEditModal);
+  btnCloseEditModal.addEventListener("click", closeEditModal);
+  btnCancelEdit.addEventListener("click", closeEditModal);
 
-  btnSaveEdit.addEventListener('click', async () => {
+  btnSaveEdit.addEventListener("click", async () => {
     if (!itemToEdit) return;
 
-    const tagsVal = document.getElementById('edit-tags-val').value.trim();
+    const tagsVal = document.getElementById("edit-tags-val").value.trim();
 
-    if (itemToEdit.type === 'word') {
-      const w = document.getElementById('edit-word-val').value.trim();
-      const t = document.getElementById('edit-trans-val').value.trim();
-      const d = document.getElementById('edit-def-val').value.trim();
+    if (itemToEdit.type === "word") {
+      const w = document.getElementById("edit-word-val").value.trim();
+      const t = document.getElementById("edit-trans-val").value.trim();
+      const d = document.getElementById("edit-def-val").value.trim();
 
       if (!w || !t) {
-        showToast('Word and Translation are required');
+        showToast("Word and Translation are required");
         return;
       }
 
@@ -933,14 +1018,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         translation: t,
         definition: d,
         color: editItemColor,
-        tags: tagsVal
+        tags: tagsVal,
       });
     } else {
-      const title = document.getElementById('edit-title-val').value.trim();
-      const body = document.getElementById('edit-body-val').value.trim();
+      const title = document.getElementById("edit-title-val").value.trim();
+      const body = document.getElementById("edit-body-val").value.trim();
 
       if (!title || !body) {
-        showToast('Title and Body are required');
+        showToast("Title and Body are required");
         return;
       }
 
@@ -948,13 +1033,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         title,
         body,
         color: editItemColor,
-        tags: tagsVal
+        tags: tagsVal,
       });
     }
 
     closeEditModal();
     await loadAllData();
-    showToast('✓ Updated successfully');
+    showToast("✓ Updated successfully");
   });
 
   // -------------------------------------------------------------
@@ -963,23 +1048,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function openDeleteModal(type, item) {
     itemToDelete = { type, item };
-    const label = type === 'word' ? `word "${item.word}"` : `note "${item.title}"`;
+    const label =
+      type === "word" ? `word "${item.word}"` : `note "${item.title}"`;
     deleteModalPrompt.textContent = `Are you sure you want to delete the ${label}? This cannot be undone.`;
-    deleteModal.style.display = 'flex';
+    deleteModal.style.display = "flex";
   }
 
   function closeDeleteModal() {
-    deleteModal.style.display = 'none';
+    deleteModal.style.display = "none";
     itemToDelete = null;
   }
 
-  btnCloseDeleteModal.addEventListener('click', closeDeleteModal);
-  btnCancelDelete.addEventListener('click', closeDeleteModal);
+  btnCloseDeleteModal.addEventListener("click", closeDeleteModal);
+  btnCancelDelete.addEventListener("click", closeDeleteModal);
 
-  btnConfirmDelete.addEventListener('click', async () => {
+  btnConfirmDelete.addEventListener("click", async () => {
     if (!itemToDelete) return;
 
-    if (itemToDelete.type === 'word') {
+    if (itemToDelete.type === "word") {
       await VocabStorage.deleteWord(itemToDelete.item.id);
     } else {
       await VocabStorage.deleteNote(itemToDelete.item.id);
@@ -987,32 +1073,35 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     closeDeleteModal();
     await loadAllData();
-    showToast('Item deleted');
+    showToast("Item deleted");
   });
 
   // -------------------------------------------------------------
   // IMPORT FUNCTIONALITY (.json & .csv)
   // -------------------------------------------------------------
 
-  btnTriggerImport.addEventListener('click', () => {
+  btnTriggerImport.addEventListener("click", () => {
     importFileInput.click();
   });
 
-  importFileInput.addEventListener('change', async (e) => {
+  importFileInput.addEventListener("change", async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
     const fileName = file.name.toLowerCase();
-    const isJson = fileName.endsWith('.json');
-    const isCsv = fileName.endsWith('.csv');
+    const isJson = fileName.endsWith(".json");
+    const isCsv = fileName.endsWith(".csv");
 
     if (!isJson && !isCsv) {
-      showImportFeedback('Please select a valid .json or .csv backup file.', 'error');
-      importFileInput.value = '';
+      showImportFeedback(
+        "Please select a valid .json or .csv backup file.",
+        "error",
+      );
+      importFileInput.value = "";
       return;
     }
 
-    showImportFeedback('Importing data...', 'neutral');
+    showImportFeedback("Importing data...", "neutral");
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -1027,21 +1116,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const msg = `✓ Successfully imported ${result.wordsImported} words and ${result.notesImported} notes!`;
-        showImportFeedback(msg, 'success');
+        showImportFeedback(msg, "success");
         showToast(msg);
         await loadAllData();
       } catch (err) {
-        console.error('Import failed:', err);
-        showImportFeedback(`Import error: ${err.message}`, 'error');
-        showToast('Import error: ' + err.message);
+        console.error("Import failed:", err);
+        showImportFeedback(`Import error: ${err.message}`, "error");
+        showToast("Import error: " + err.message);
       } finally {
-        importFileInput.value = '';
+        importFileInput.value = "";
       }
     };
 
     reader.onerror = () => {
-      showImportFeedback('Failed to read the selected file.', 'error');
-      importFileInput.value = '';
+      showImportFeedback("Failed to read the selected file.", "error");
+      importFileInput.value = "";
     };
 
     reader.readAsText(file);
@@ -1050,7 +1139,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function showImportFeedback(msg, type) {
     importFeedbackBox.textContent = msg;
     importFeedbackBox.className = `import-feedback-box ${type}`;
-    importFeedbackBox.style.display = 'block';
+    importFeedbackBox.style.display = "block";
   }
 
   // -------------------------------------------------------------
@@ -1059,62 +1148,82 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function getDatestamp() {
     const now = new Date();
-    return now.toISOString().split('T')[0];
+    return now.toISOString().split("T")[0];
   }
 
-  btnExportWordsCsv.addEventListener('click', async () => {
+  btnExportWordsCsv.addEventListener("click", async () => {
     const words = await VocabStorage.getWords();
     if (words.length === 0) {
-      showToast('No words to export');
+      showToast("No words to export");
       return;
     }
     const csv = VocabStorage.exportWordsToCsv(words);
-    VocabStorage.downloadFile(csv, `vocab_words_anki_${getDatestamp()}.csv`, 'text/csv;charset=utf-8;');
-    showToast('✓ Words CSV exported');
+    VocabStorage.downloadFile(
+      csv,
+      `vocab_words_anki_${getDatestamp()}.csv`,
+      "text/csv;charset=utf-8;",
+    );
+    showToast("✓ Words CSV exported");
   });
 
-  btnExportWordsJson.addEventListener('click', async () => {
+  btnExportWordsJson.addEventListener("click", async () => {
     const words = await VocabStorage.getWords();
     if (words.length === 0) {
-      showToast('No words to export');
+      showToast("No words to export");
       return;
     }
     const json = VocabStorage.exportWordsToJson(words);
-    VocabStorage.downloadFile(json, `vocab_words_${getDatestamp()}.json`, 'application/json;charset=utf-8;');
-    showToast('✓ Words JSON exported');
+    VocabStorage.downloadFile(
+      json,
+      `vocab_words_${getDatestamp()}.json`,
+      "application/json;charset=utf-8;",
+    );
+    showToast("✓ Words JSON exported");
   });
 
-  btnExportNotesCsv.addEventListener('click', async () => {
+  btnExportNotesCsv.addEventListener("click", async () => {
     const notes = await VocabStorage.getNotes();
     if (notes.length === 0) {
-      showToast('No notes to export');
+      showToast("No notes to export");
       return;
     }
     const csv = VocabStorage.exportNotesToCsv(notes);
-    VocabStorage.downloadFile(csv, `vocab_notes_${getDatestamp()}.csv`, 'text/csv;charset=utf-8;');
-    showToast('✓ Notes CSV exported');
+    VocabStorage.downloadFile(
+      csv,
+      `vocab_notes_${getDatestamp()}.csv`,
+      "text/csv;charset=utf-8;",
+    );
+    showToast("✓ Notes CSV exported");
   });
 
-  btnExportNotesJson.addEventListener('click', async () => {
+  btnExportNotesJson.addEventListener("click", async () => {
     const notes = await VocabStorage.getNotes();
     if (notes.length === 0) {
-      showToast('No notes to export');
+      showToast("No notes to export");
       return;
     }
     const json = VocabStorage.exportNotesToJson(notes);
-    VocabStorage.downloadFile(json, `vocab_notes_${getDatestamp()}.json`, 'application/json;charset=utf-8;');
-    showToast('✓ Notes JSON exported');
+    VocabStorage.downloadFile(
+      json,
+      `vocab_notes_${getDatestamp()}.json`,
+      "application/json;charset=utf-8;",
+    );
+    showToast("✓ Notes JSON exported");
   });
 
-  btnExportAllJson.addEventListener('click', async () => {
+  btnExportAllJson.addEventListener("click", async () => {
     const all = await VocabStorage.getAllData();
     if (all.words.length === 0 && all.notes.length === 0) {
-      showToast('No data to export');
+      showToast("No data to export");
       return;
     }
     const json = VocabStorage.exportAllToJson(all);
-    VocabStorage.downloadFile(json, `vocab_vault_backup_${getDatestamp()}.json`, 'application/json;charset=utf-8;');
-    showToast('✓ Full backup JSON exported');
+    VocabStorage.downloadFile(
+      json,
+      `vocab_vault_backup_${getDatestamp()}.json`,
+      "application/json;charset=utf-8;",
+    );
+    showToast("✓ Full backup JSON exported");
   });
 
   // -------------------------------------------------------------
@@ -1122,14 +1231,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   // -------------------------------------------------------------
 
   function showToast(msg, duration = 2200) {
-    const toast = document.createElement('div');
-    toast.className = 'toast';
+    const toast = document.createElement("div");
+    toast.className = "toast";
     toast.textContent = msg;
     toastContainer.appendChild(toast);
 
     setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transition = 'opacity 0.2s';
+      toast.style.opacity = "0";
+      toast.style.transition = "opacity 0.2s";
       setTimeout(() => toast.remove(), 200);
     }, duration);
   }

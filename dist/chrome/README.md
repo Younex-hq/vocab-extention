@@ -51,13 +51,13 @@ A minimalist, high-productivity browser extension (Manifest V3) for saving vocab
 
 ## Browser Setup & Installation
 
-This folder is the **Chrome / Chromium (Brave, Edge) build**. It is generated from the project root by `build.js`, and Chrome and Firefox have differing Manifest V3 requirements for background workers (`service_worker` in Chrome vs `background.scripts` in Firefox) — which is why each browser gets its own dedicated, warning-free folder.
+Because Chrome and Firefox have differing Manifest V3 requirements for background workers (`service_worker` in Chrome vs `background.scripts` in Firefox), the project ships **two dedicated, pre-built folders** in `dist/`, so both browsers run with **zero warnings and zero errors**.
 
 ### Option A: Using the `dist` distributions (Simultaneous, 0 warnings in both)
 
 The `dist/` folder is **committed to this repository**, so both browser builds are already present and can be loaded immediately — **no build step required**.
 
-You only need to regenerate them from the project root after editing a source file there (`background.js`, `storage.js`, `content.js`, `content.css`, `popup.html`, `popup.css`, `popup.js`, `build.js`, or any icon). Skipping this step means `dist/` keeps serving the older copies:
+You only need to regenerate them after editing a source file at the project root (`background.js`, `storage.js`, `content.js`, `content.css`, `popup.html`, `popup.css`, `popup.js`, `build.js`, or any icon). Skipping this step means `dist/` keeps serving the older copies:
 
 ```bash
 npm run build
