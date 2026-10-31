@@ -12,7 +12,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   let cachedWords = [];
   let cachedNotes = [];
   let activeTabUrl = "";
+  let activeTabId = null;
   let currentTheme = "light";
+  let allTags = [];
 
   // Filter & Sort State
   let searchQuery = "";
@@ -112,6 +114,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   const btnCancelDelete = document.getElementById("btn-cancel-delete");
   const btnCloseDeleteModal = document.getElementById("btn-close-delete-modal");
 
+  // DOM Elements - Settings Modal
+  const btnOpenSettings = document.getElementById("btn-open-settings");
+  const settingsModal = document.getElementById("settings-modal");
+  const settingsDefaultView = document.getElementById("settings-default-view");
+  const btnCloseSettingsModal = document.getElementById(
+    "btn-close-settings-modal",
+  );
+  const btnSaveSettings = document.getElementById("btn-save-settings");
+
   // Toast
   const toastContainer = document.getElementById("toast-container");
 
@@ -184,6 +195,152 @@ document.addEventListener("DOMContentLoaded", async () => {
   );
 
   // -------------------------------------------------------------
+  // TAG AUTO-SUGGESTIONS (Feature: reuse previously used tags)
+  // -------------------------------------------------------------
+
+  /**
+   * Attaches a suggestion dropdown to a comma-separated tags input. As the user
+   * types a tag, previously used tags that start with the typed text are offered
+   * and can be inserted with a click or the arrow/Enter keys.
+   */
+  function attachTagAutocomplete(input) {
+    if (!input) return;
+
+    let dropdown = null;
+    let activeIndex = -1;
+
+    function closeDropdown() {
+      if (dropdown) {
+        dropdown.remove();
+        dropdown = null;
+      }
+      activeIndex = -1;
+    }
+
+    function getMatches() {
+      const caret =
+        input.selectionStart === null
+          ? input.value.length
+          : input.selectionStart;
+      const ctx = VocabStorage.getTagTokenContext(input.value, caret);
+      const q = ctx.token.toLowerCase();
+      if (!q) return { ctx, matches: [] };
+
+      const existing = new Set(VocabStorage.parseTags(input.value));
+      const matches = allTags
+        .filter((t) => t.startsWith(q) && t !== q && !existing.has(t))
+        .slice(0, 8);
+      return { ctx, matches };
+    }
+
+    function render() {
+      const { matches } = getMatches();
+      if (matches.length === 0) {
+        closeDropdown();
+        return;
+      }
+      if (!dropdown) {
+        dropdown = document.createElement("div");
+        dropdown.className = "tag-suggestions";
+        input.parentElement.appendChild(dropdown);
+      }
+      dropdown.innerHTML = "";
+      activeIndex = -1;
+      matches.forEach((tag) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "tag-suggestion-item";
+        item.textContent = "#" + tag;
+        item.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          select(tag);
+        });
+        dropdown.appendChild(item);
+      });
+    }
+
+    function select(tag) {
+      const caret =
+        input.selectionStart === null
+          ? input.value.length
+          : input.selectionStart;
+      const ctx = VocabStorage.getTagTokenContext(input.value, caret);
+      const applied = VocabStorage.applyTagSelection(
+        input.value,
+        ctx.start,
+        ctx.end,
+        tag,
+      );
+      input.value = applied.value;
+      input.setSelectionRange(applied.caret, applied.caret);
+      closeDropdown();
+      input.focus();
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    input.addEventListener("input", render);
+    input.addEventListener("focus", render);
+    input.addEventListener("click", render);
+    input.addEventListener("blur", () => setTimeout(closeDropdown, 120));
+
+    input.addEventListener("keydown", (e) => {
+      if (!dropdown) return;
+      const items = dropdown.querySelectorAll(".tag-suggestion-item");
+      if (items.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        activeIndex = (activeIndex + 1) % items.length;
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        activeIndex = (activeIndex - 1 + items.length) % items.length;
+      } else if (e.key === "Enter" && activeIndex >= 0) {
+        e.preventDefault();
+        select(items[activeIndex].textContent.replace(/^#/, ""));
+        return;
+      } else if (e.key === "Escape") {
+        closeDropdown();
+        return;
+      } else {
+        return;
+      }
+
+      items.forEach((it, i) =>
+        it.classList.toggle("active", i === activeIndex),
+      );
+    });
+  }
+
+  // -------------------------------------------------------------
+  // SETTINGS MODAL (Feature: configurable default view)
+  // -------------------------------------------------------------
+
+  async function openSettingsModal() {
+    try {
+      settingsDefaultView.value = await VocabStorage.getDefaultView();
+    } catch {
+      settingsDefaultView.value = "view-see-saves";
+    }
+    settingsModal.style.display = "flex";
+  }
+
+  function closeSettingsModal() {
+    settingsModal.style.display = "none";
+  }
+
+  btnOpenSettings.addEventListener("click", openSettingsModal);
+  btnCloseSettingsModal.addEventListener("click", closeSettingsModal);
+  settingsModal.addEventListener("click", (e) => {
+    if (e.target === settingsModal) closeSettingsModal();
+  });
+
+  btnSaveSettings.addEventListener("click", async () => {
+    await VocabStorage.setDefaultView(settingsDefaultView.value);
+    closeSettingsModal();
+    showToast("✓ Settings saved");
+  });
+
+  // -------------------------------------------------------------
   // INITIALIZATION
   // -------------------------------------------------------------
 
@@ -205,15 +362,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         );
       }
       const tab = tabs && tabs[0];
-      if (
-        tab &&
-        tab.url &&
-        !tab.url.startsWith("chrome://") &&
-        !tab.url.startsWith("about:")
-      ) {
-        activeTabUrl = tab.url;
-        wordSourceUrl.value = activeTabUrl;
-        noteSourceUrl.value = activeTabUrl;
+      if (tab) {
+        activeTabId = tab.id;
+        if (
+          tab.url &&
+          !tab.url.startsWith("chrome://") &&
+          !tab.url.startsWith("about:")
+        ) {
+          activeTabUrl = tab.url;
+          wordSourceUrl.value = activeTabUrl;
+          noteSourceUrl.value = activeTabUrl;
+        }
       }
     }
   } catch (e) {
@@ -221,6 +380,71 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   await loadAllData();
+  await applyStartupView();
+
+  // Enable tag auto-suggestions on the add forms
+  attachTagAutocomplete(wordTagsInput);
+  attachTagAutocomplete(noteTagsInput);
+
+  /**
+   * Opens the view chosen in Settings (defaults to "See Saves"). When the user
+   * picked an "Add" view, the page selection is pre-filled and fully selected.
+   */
+  async function applyStartupView() {
+    let defaultView = "view-see-saves";
+    try {
+      defaultView = await VocabStorage.getDefaultView();
+    } catch {
+      defaultView = "view-see-saves";
+    }
+
+    switchView(defaultView);
+
+    let targetInput = null;
+    if (defaultView === "view-add-word") targetInput = wordInput;
+    else if (defaultView === "view-add-note") targetInput = noteTitleInput;
+    if (!targetInput) return;
+
+    const selectedText = await getSelectedText();
+    if (!selectedText) return;
+    targetInput.value = selectedText;
+    targetInput.focus();
+    targetInput.select();
+  }
+
+  /**
+   * Reads the text currently selected on the active page by injecting a tiny
+   * function into the tab. Fails silently on restricted/internal pages.
+   */
+  async function getSelectedText() {
+    if (!activeTabId) return "";
+    const extAPI =
+      typeof browser !== "undefined" && browser && browser.scripting
+        ? browser
+        : chrome;
+    if (!extAPI || !extAPI.scripting) return "";
+
+    const details = {
+      target: { tabId: activeTabId },
+      func: () => (window.getSelection ? String(window.getSelection()) : ""),
+    };
+
+    try {
+      const res = extAPI.scripting.executeScript(details);
+      const results =
+        res && typeof res.then === "function"
+          ? await res
+          : await new Promise((resolve) =>
+              extAPI.scripting.executeScript(details, resolve),
+            );
+      const first = Array.isArray(results) ? results[0] : null;
+      return first && typeof first.result === "string"
+        ? first.result.trim()
+        : "";
+    } catch {
+      return "";
+    }
+  }
 
   // -------------------------------------------------------------
   // NAVIGATION & VIEW SWITCHING
@@ -290,6 +514,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const { words, notes } = await VocabStorage.getAllData();
       cachedWords = words || [];
       cachedNotes = notes || [];
+      allTags = await VocabStorage.getAllTags();
       updateBadges();
       populateDynamicFilters();
       renderLists();
@@ -986,6 +1211,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       editItemColor,
       (c) => (editItemColor = c),
     );
+
+    // Tag auto-suggestions for the (re-created) edit tags input
+    attachTagAutocomplete(document.getElementById("edit-tags-val"));
 
     editModal.style.display = "flex";
   }

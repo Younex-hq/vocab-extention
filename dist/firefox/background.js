@@ -21,35 +21,85 @@ const CONTEXT_MENUS = {
 };
 
 /**
+ * Remove all existing context menus. Resolves once the API has finished,
+ * supporting both the Promise (Firefox) and callback (Chrome) styles.
+ */
+function removeAllContextMenus() {
+  if (!contextMenuAPI || !contextMenuAPI.removeAll) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    try {
+      const ret = contextMenuAPI.removeAll(() => {
+        // Consume lastError so it is never reported as "Unchecked".
+        void extAPI.runtime.lastError;
+        resolve();
+      });
+      if (ret && typeof ret.then === 'function') {
+        ret.then(resolve).catch(() => resolve());
+      }
+    } catch {
+      resolve();
+    }
+  });
+}
+
+/**
+ * Create a single context menu, tolerating the "duplicate id" case so the
+ * extension never surfaces an unchecked runtime error.
+ */
+function createContextMenu(props) {
+  if (!contextMenuAPI) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    try {
+      const ret = contextMenuAPI.create(props, () => {
+        const err = extAPI.runtime.lastError;
+        if (err && !/duplicate/i.test(err.message || '')) {
+          console.warn('Context menu create failed:', err.message);
+        }
+        resolve();
+      });
+      if (ret && typeof ret.then === 'function') {
+        ret.catch(() => {}).then(resolve);
+      }
+    } catch {
+      resolve();
+    }
+  });
+}
+
+// Serializes menu setup so onInstalled and onStartup can never run
+// removeAll/create concurrently (which is what produces duplicate ids).
+let menusSetupPromise = null;
+
+/**
  * Register Context Menus across Firefox and Chrome
  */
 async function setupContextMenus() {
   if (!contextMenuAPI) return;
+  if (menusSetupPromise) return menusSetupPromise;
 
-  try {
-    if (contextMenuAPI.removeAll) {
-      await new Promise((resolve) => {
-        const ret = contextMenuAPI.removeAll(() => resolve());
-        if (ret && typeof ret.then === 'function') {
-          ret.then(resolve).catch(resolve);
-        }
+  menusSetupPromise = (async () => {
+    try {
+      await removeAllContextMenus();
+
+      await createContextMenu({
+        id: CONTEXT_MENUS.SAVE_WORD,
+        title: 'Save word "%s"',
+        contexts: ['selection']
       });
+
+      await createContextMenu({
+        id: CONTEXT_MENUS.SAVE_NOTE,
+        title: 'Save as note "%s"',
+        contexts: ['selection']
+      });
+    } finally {
+      menusSetupPromise = null;
     }
-  } catch (err) {
-    // Non-fatal if removeAll fails
-  }
+  })();
 
-  contextMenuAPI.create({
-    id: CONTEXT_MENUS.SAVE_WORD,
-    title: 'Save word "%s"',
-    contexts: ['selection']
-  });
-
-  contextMenuAPI.create({
-    id: CONTEXT_MENUS.SAVE_NOTE,
-    title: 'Save as note "%s"',
-    contexts: ['selection']
-  });
+  return menusSetupPromise;
 }
 
 extAPI.runtime.onInstalled.addListener(() => {

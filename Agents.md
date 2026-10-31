@@ -37,6 +37,12 @@ This document serves as the persistent memory, architectural blueprint, and cont
 5. **Dark Mode & Light Mode:**
    - Toggle button in header (`☀️ / 🌙`) with solid slate dark palette. Persisted in `chrome.storage.local`.
    - Also automatically syncs to in-page right-click Shadow DOM modals.
+6. **Tag Auto-Suggestions:**
+   - While typing a tag into any tag field (add word, add note, edit modal — in both the popup and the in-page modal), previously used tags that start with the typed text are offered in a dropdown.
+   - Tags can be picked with a click or via `↑` / `↓` + `Enter`; the selection is appended to the comma-separated list so users can combine existing tags with brand-new ones without retyping.
+7. **Configurable Default View & Selection Prefill:**
+   - A **Settings** modal (gear button `⚙︎` in the popup header) lets the user choose which view opens by default: `See Saves`, `Add Word`, or `Add Note`.
+   - When an **Add** view is the default, the text the user has selected on the active page is pre-filled into the **Word** field (for words) or the **Title** field (for notes) and is fully selected, so it can be instantly replaced or kept. Fails silently on restricted/internal pages.
 
 ---
 
@@ -83,12 +89,12 @@ This document serves as the persistent memory, architectural blueprint, and cont
 vocab-extension/
 ├── manifest.json        # Chrome Extension Manifest V3 (with unlimitedStorage)
 ├── background.js        # Background service worker (Context Menus & tab dispatch)
-├── storage.js           # Shared storage layer, RFC 4180 CSV / JSON engine, Importers & Theme
-├── content.js           # In-page Shadow DOM modal (colors, tags, dark theme support)
+├── storage.js           # Shared storage layer, RFC 4180 CSV / JSON engine, Importers, Theme, Tag helpers & Default-view preference
+├── content.js           # In-page Shadow DOM modal (colors, tags, tag suggestions, dark theme support)
 ├── content.css          # Fallback / host element style reset
-├── popup.html           # Popup HTML (collapsible filter dropdown, dark toggle, import UI)
+├── popup.html           # Popup HTML (collapsible filter dropdown, dark toggle, settings modal, import UI)
 ├── popup.css            # Minimalist styles with complete [data-theme="dark"] rules
-├── popup.js             # Controller handling theme, collapsible dropdown, imports, and exports
+├── popup.js             # Controller handling theme, collapsible dropdown, tag autocomplete, default view, imports, and exports
 ├── icons/
 │   ├── icon16.png       # 16x16 extension icon
 │   ├── icon32.png       # 32x32 extension icon
@@ -161,6 +167,20 @@ interface NoteItem {
 - Toggle button in header switches `data-theme="dark"` attribute on `document.documentElement`.
 - In-page Shadow DOM modal checks theme before rendering and applies `.dark` styles.
 
+### Tag Auto-Suggestions (`storage.js` + `popup.js` + `content.js`)
+
+- Shared helpers live in `storage.js` so the popup and the in-page Shadow DOM modals use identical logic:
+  - `getTagTokenContext(value, caret)` → returns the tag token currently under the caret (`{ token, start, end }`), respecting `,` and `;` separators.
+  - `applyTagSelection(value, start, end, tag)` → replaces the token range with `tag`, preserving the rest of the comma-separated value and returning `{ value, caret }`.
+  - `getAllTags()` → collects every tag from words + notes, lowercased, de-duplicated, and sorted.
+- `popup.js` `attachTagAutocomplete(input)` wires inputs `#word-tags-input`, `#note-tags-input`, and the (dynamically created) `#edit-tags-val`; `content.js` `setupTagSuggestions(input, knownTags)` does the same for the modal `#input-tags` field. Suggestions are prefix-matched (`startsWith`), capped at 8, and exclude tags already present in the field.
+
+### Settings & Default View (`storage.js` + `popup.js`)
+
+- `VocabStorage.getDefaultView()` / `setDefaultView(view)` read/write the `'vocab_default_view'` key; values are validated against `VALID_VIEWS` (`view-see-saves`, `view-add-word`, `view-add-note`) and default to `view-see-saves`.
+- The popup **Settings** modal (`#settings-modal`, opened by `#btn-open-settings`) exposes a `#settings-default-view` `<select>`.
+- On startup, `applyStartupView()` switches to the configured view; if it is an Add view, `getSelectedText()` (via `chrome.scripting.executeScript` with a `func:` payload) reads the page selection and pre-fills + `.select()`s the target input.
+
 ### Cross-Browser Architecture (Chrome & Firefox)
 
 - **Universal WebExtension Resolver:** Dynamically resolves `browser` (native Gecko API) or `chrome` (Chromium API) across background, content, popup, and storage scripts.
@@ -208,3 +228,10 @@ interface NoteItem {
   - Added Firefox internal page URL handling (`about:`) alongside `chrome://` in tab query routines.
   - Updated `popup.css` with explicit `html, body` min/max constraints to prevent popup resizing quirks in Firefox.
   - Updated `README.md` with instructions for both browsers.
+
+### Session 5 (2026-10-31):
+
+- **Tag Auto-Suggestions:** Added shared tag-token helpers (`getTagTokenContext`, `applyTagSelection`) and `getAllTags()` to `storage.js`; wired suggestion dropdowns into the popup (`#word-tags-input`, `#note-tags-input`, edit-modal `#edit-tags-val`) and the in-page Shadow DOM modals (`#input-tags`). Includes keyboard navigation (`↑`/`↓`/`Enter`/`Esc`) and click selection, with dropdown styles for both light and dark themes.
+- **Configurable Default View + Selection Prefill:** Added the `vocab_default_view` storage key with `getDefaultView()` / `setDefaultView()`; added a Settings modal (gear button in the popup header) to choose the startup view. `applyStartupView()` now opens the configured view and, for Add views, pre-fills the page selection into the Word/Title field and fully selects it.
+- Updated `Agents.md` (Overview, File Structure, Implementation Details) accordingly.
+- **Context Menu Fix:** Made `setupContextMenus()` in `background.js` idempotent/serialized (an in-flight guard) so `onInstalled` and `onStartup` can never run `removeAll`/`create` concurrently; `create`/`removeAll` now consume `runtime.lastError`, eliminating the `Cannot create item with duplicate id vocab_save_word` unchecked error.

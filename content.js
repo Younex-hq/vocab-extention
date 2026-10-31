@@ -5,7 +5,7 @@
  */
 
 (function () {
-  'use strict';
+  "use strict";
 
   // Prevent multiple injections
   if (window.__VOCAB_EXTENSION_CONTENT_INJECTED__) return;
@@ -136,6 +136,7 @@
       display: flex;
       flex-direction: column;
       gap: 5px;
+      position: relative;
     }
 
     .vocab-label {
@@ -307,6 +308,43 @@
       margin-top: 2px;
     }
 
+    /* Tag Auto-Suggestions Dropdown */
+    .vocab-tag-suggestions {
+      position: absolute;
+      top: calc(100% + 2px);
+      left: 0;
+      right: 0;
+      z-index: 20;
+      background-color: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      box-shadow: 0 6px 14px -4px rgba(0, 0, 0, 0.18);
+      max-height: 140px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      padding: 3px;
+      gap: 1px;
+    }
+
+    .vocab-tag-suggestion-item {
+      text-align: left;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 9px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #334155;
+      cursor: pointer;
+    }
+
+    .vocab-tag-suggestion-item:hover,
+    .vocab-tag-suggestion-item.active {
+      background-color: #eff6ff;
+      color: #2563eb;
+    }
+
     /* Dark Mode In-Page Modal Styles */
     .vocab-modal.dark {
       background-color: #0f172a;
@@ -388,16 +426,32 @@
     .vocab-modal.dark .vocab-swatch.active {
       box-shadow: 0 0 0 2px #0f172a, 0 0 0 4px #f8fafc;
     }
+
+    .vocab-modal.dark .vocab-tag-suggestions {
+      background-color: #1e293b;
+      border-color: #475569;
+      box-shadow: 0 6px 14px -4px rgba(0, 0, 0, 0.5);
+    }
+
+    .vocab-modal.dark .vocab-tag-suggestion-item {
+      color: #cbd5e1;
+    }
+
+    .vocab-modal.dark .vocab-tag-suggestion-item:hover,
+    .vocab-modal.dark .vocab-tag-suggestion-item.active {
+      background-color: #334155;
+      color: #93c5fd;
+    }
   `;
 
   function initShadowRoot() {
     if (!hostElement) {
-      hostElement = document.createElement('div');
-      hostElement.id = 'vocab-extension-root';
+      hostElement = document.createElement("div");
+      hostElement.id = "vocab-extension-root";
       document.documentElement.appendChild(hostElement);
-      shadowRoot = hostElement.attachShadow({ mode: 'open' });
+      shadowRoot = hostElement.attachShadow({ mode: "open" });
 
-      const style = document.createElement('style');
+      const style = document.createElement("style");
       style.textContent = MODAL_STYLES;
       shadowRoot.appendChild(style);
     }
@@ -416,18 +470,147 @@
    * Helper to build Color Swatches HTML and attach events
    */
   function setupColorSwatches(container, initialColor, onColorChange) {
-    const colors = ['none', 'blue', 'green', 'yellow', 'red', 'purple', 'orange'];
+    const colors = [
+      "none",
+      "blue",
+      "green",
+      "yellow",
+      "red",
+      "purple",
+      "orange",
+    ];
     colors.forEach((c) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `vocab-swatch swatch-${c} ${c === initialColor ? 'active' : ''}`;
-      btn.title = c === 'none' ? 'No color (Default)' : c.charAt(0).toUpperCase() + c.slice(1);
-      btn.addEventListener('click', () => {
-        container.querySelectorAll('.vocab-swatch').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `vocab-swatch swatch-${c} ${c === initialColor ? "active" : ""}`;
+      btn.title =
+        c === "none"
+          ? "No color (Default)"
+          : c.charAt(0).toUpperCase() + c.slice(1);
+      btn.addEventListener("click", () => {
+        container
+          .querySelectorAll(".vocab-swatch")
+          .forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
         onColorChange(c);
       });
       container.appendChild(btn);
+    });
+  }
+
+  /**
+   * Attaches a suggestion dropdown to a comma-separated tags input inside the
+   * Shadow DOM. Offers previously used tags as the user types, matching the
+   * behaviour of the popup. Selecting a tag inserts it and keeps the input
+   * focused so more tags can be typed.
+   */
+  function setupTagSuggestions(input, knownTags) {
+    if (!input || !Array.isArray(knownTags) || knownTags.length === 0) return;
+
+    let dropdown = null;
+    let activeIndex = -1;
+
+    function closeDropdown() {
+      if (dropdown) {
+        dropdown.remove();
+        dropdown = null;
+      }
+      activeIndex = -1;
+    }
+
+    function getMatches() {
+      const caret =
+        input.selectionStart === null
+          ? input.value.length
+          : input.selectionStart;
+      const ctx = VocabStorage.getTagTokenContext(input.value, caret);
+      const q = ctx.token.toLowerCase();
+      if (!q) return { ctx, matches: [] };
+
+      const existing = new Set(VocabStorage.parseTags(input.value));
+      const matches = knownTags
+        .filter((t) => t.startsWith(q) && t !== q && !existing.has(t))
+        .slice(0, 8);
+      return { ctx, matches };
+    }
+
+    function render() {
+      const { matches } = getMatches();
+      if (matches.length === 0) {
+        closeDropdown();
+        return;
+      }
+      if (!dropdown) {
+        dropdown = document.createElement("div");
+        dropdown.className = "vocab-tag-suggestions";
+        input.parentElement.appendChild(dropdown);
+      }
+      dropdown.innerHTML = "";
+      activeIndex = -1;
+      matches.forEach((tag) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "vocab-tag-suggestion-item";
+        item.textContent = "#" + tag;
+        item.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          select(tag);
+        });
+        dropdown.appendChild(item);
+      });
+    }
+
+    function select(tag) {
+      const caret =
+        input.selectionStart === null
+          ? input.value.length
+          : input.selectionStart;
+      const ctx = VocabStorage.getTagTokenContext(input.value, caret);
+      const applied = VocabStorage.applyTagSelection(
+        input.value,
+        ctx.start,
+        ctx.end,
+        tag,
+      );
+      input.value = applied.value;
+      input.setSelectionRange(applied.caret, applied.caret);
+      closeDropdown();
+      input.focus();
+    }
+
+    input.addEventListener("input", render);
+    input.addEventListener("focus", render);
+    input.addEventListener("click", render);
+    input.addEventListener("blur", () => setTimeout(closeDropdown, 120));
+
+    input.addEventListener("keydown", (e) => {
+      if (!dropdown) return;
+      const items = dropdown.querySelectorAll(".vocab-tag-suggestion-item");
+      if (items.length === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        activeIndex = (activeIndex + 1) % items.length;
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        activeIndex = (activeIndex - 1 + items.length) % items.length;
+      } else if (e.key === "Enter" && activeIndex >= 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        select(items[activeIndex].textContent.replace(/^#/, ""));
+        return;
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeDropdown();
+        return;
+      } else {
+        return;
+      }
+
+      items.forEach((it, i) =>
+        it.classList.toggle("active", i === activeIndex),
+      );
     });
   }
 
@@ -438,13 +621,15 @@
     closeModal();
     const shadow = initShadowRoot();
 
-    let selectedColor = 'none';
-    const theme = (await VocabStorage.getTheme().catch(() => 'light')) || 'light';
+    let selectedColor = "none";
+    const theme =
+      (await VocabStorage.getTheme().catch(() => "light")) || "light";
+    const knownTags = await VocabStorage.getAllTags().catch(() => []);
 
-    const container = document.createElement('div');
-    container.className = 'vocab-backdrop';
+    const container = document.createElement("div");
+    container.className = "vocab-backdrop";
     container.innerHTML = `
-      <div class="vocab-modal ${theme === 'dark' ? 'dark' : ''}" style="position: relative;">
+      <div class="vocab-modal ${theme === "dark" ? "dark" : ""}" style="position: relative;">
         <div class="vocab-header">
           <div class="vocab-title-wrap">
             <span class="vocab-badge">Vocabulary</span>
@@ -489,7 +674,7 @@
               <strong>Source:</strong> ${escapeHtml(pageTitle || pageUrl)}
             </div>
           `
-              : ''
+              : ""
           }
         </div>
 
@@ -506,18 +691,24 @@
 
     shadow.appendChild(container);
 
-    const inputWord = shadow.getElementById('input-word');
-    const inputTranslation = shadow.getElementById('input-translation');
-    const inputDefinition = shadow.getElementById('input-definition');
-    const inputTags = shadow.getElementById('input-tags');
-    const colorPickerRow = shadow.getElementById('color-picker-row');
-    const btnSave = shadow.getElementById('btn-save');
-    const btnCancel = shadow.getElementById('btn-cancel');
-    const btnClose = shadow.getElementById('btn-close');
-    const errorBanner = shadow.getElementById('error-banner');
-    const successToast = shadow.getElementById('success-toast');
+    const inputWord = shadow.getElementById("input-word");
+    const inputTranslation = shadow.getElementById("input-translation");
+    const inputDefinition = shadow.getElementById("input-definition");
+    const inputTags = shadow.getElementById("input-tags");
+    const colorPickerRow = shadow.getElementById("color-picker-row");
+    const btnSave = shadow.getElementById("btn-save");
+    const btnCancel = shadow.getElementById("btn-cancel");
+    const btnClose = shadow.getElementById("btn-close");
+    const errorBanner = shadow.getElementById("error-banner");
+    const successToast = shadow.getElementById("success-toast");
 
-    setupColorSwatches(colorPickerRow, selectedColor, (c) => (selectedColor = c));
+    setupColorSwatches(
+      colorPickerRow,
+      selectedColor,
+      (c) => (selectedColor = c),
+    );
+
+    setupTagSuggestions(inputTags, knownTags);
 
     // Auto focus translation
     setTimeout(() => {
@@ -531,20 +722,20 @@
       const tags = inputTags.value.trim();
 
       if (!w) {
-        showError('Please enter a word.');
-        inputWord.classList.add('error');
+        showError("Please enter a word.");
+        inputWord.classList.add("error");
         inputWord.focus();
         return;
       }
       if (!t) {
-        showError('Please enter a translation.');
-        inputTranslation.classList.add('error');
+        showError("Please enter a translation.");
+        inputTranslation.classList.add("error");
         inputTranslation.focus();
         return;
       }
 
       btnSave.disabled = true;
-      btnSave.textContent = 'Saving...';
+      btnSave.textContent = "Saving...";
 
       try {
         await VocabStorage.saveWord({
@@ -554,54 +745,60 @@
           color: selectedColor,
           tags: tags,
           sourceUrl: pageUrl,
-          sourceTitle: pageTitle
+          sourceTitle: pageTitle,
         });
 
-        successToast.style.display = 'flex';
+        successToast.style.display = "flex";
         setTimeout(() => {
           closeModal();
         }, 500);
       } catch (err) {
-        showError(err.message || 'Failed to save word.');
+        showError(err.message || "Failed to save word.");
         btnSave.disabled = false;
-        btnSave.textContent = 'Save Word';
+        btnSave.textContent = "Save Word";
       }
     };
 
     function showError(msg) {
       errorBanner.textContent = msg;
-      errorBanner.style.display = 'block';
+      errorBanner.style.display = "block";
     }
 
     function clearErrors() {
-      errorBanner.style.display = 'none';
-      inputWord.classList.remove('error');
-      inputTranslation.classList.remove('error');
+      errorBanner.style.display = "none";
+      inputWord.classList.remove("error");
+      inputTranslation.classList.remove("error");
     }
 
-    inputWord.addEventListener('input', clearErrors);
-    inputTranslation.addEventListener('input', clearErrors);
+    inputWord.addEventListener("input", clearErrors);
+    inputTranslation.addEventListener("input", clearErrors);
 
-    btnSave.addEventListener('click', handleSave);
-    btnCancel.addEventListener('click', closeModal);
-    btnClose.addEventListener('click', closeModal);
+    btnSave.addEventListener("click", handleSave);
+    btnCancel.addEventListener("click", closeModal);
+    btnClose.addEventListener("click", closeModal);
 
-    container.addEventListener('click', (e) => {
+    container.addEventListener("click", (e) => {
       if (e.target === container) closeModal();
     });
 
     const keyHandler = (e) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         closeModal();
-      } else if (e.key === 'Enter') {
-        if (e.ctrlKey || e.metaKey || e.target === inputTranslation || e.target === inputWord || e.target === inputTags) {
+      } else if (e.key === "Enter") {
+        if (
+          e.ctrlKey ||
+          e.metaKey ||
+          e.target === inputTranslation ||
+          e.target === inputWord ||
+          e.target === inputTags
+        ) {
           e.preventDefault();
           handleSave();
         }
       }
     };
 
-    container.addEventListener('keydown', keyHandler);
+    container.addEventListener("keydown", keyHandler);
   }
 
   /**
@@ -611,13 +808,15 @@
     closeModal();
     const shadow = initShadowRoot();
 
-    let selectedColor = 'none';
-    const theme = (await VocabStorage.getTheme().catch(() => 'light')) || 'light';
+    let selectedColor = "none";
+    const theme =
+      (await VocabStorage.getTheme().catch(() => "light")) || "light";
+    const knownTags = await VocabStorage.getAllTags().catch(() => []);
 
-    const container = document.createElement('div');
-    container.className = 'vocab-backdrop';
+    const container = document.createElement("div");
+    container.className = "vocab-backdrop";
     container.innerHTML = `
-      <div class="vocab-modal ${theme === 'dark' ? 'dark' : ''}" style="position: relative;">
+      <div class="vocab-modal ${theme === "dark" ? "dark" : ""}" style="position: relative;">
         <div class="vocab-header">
           <div class="vocab-title-wrap">
             <span class="vocab-badge">Note</span>
@@ -657,7 +856,7 @@
               <strong>Source:</strong> ${escapeHtml(pageTitle || pageUrl)}
             </div>
           `
-              : ''
+              : ""
           }
         </div>
 
@@ -674,17 +873,23 @@
 
     shadow.appendChild(container);
 
-    const inputTitle = shadow.getElementById('input-title');
-    const inputBody = shadow.getElementById('input-body');
-    const inputTags = shadow.getElementById('input-tags');
-    const colorPickerRow = shadow.getElementById('color-picker-row');
-    const btnSave = shadow.getElementById('btn-save');
-    const btnCancel = shadow.getElementById('btn-cancel');
-    const btnClose = shadow.getElementById('btn-close');
-    const errorBanner = shadow.getElementById('error-banner');
-    const successToast = shadow.getElementById('success-toast');
+    const inputTitle = shadow.getElementById("input-title");
+    const inputBody = shadow.getElementById("input-body");
+    const inputTags = shadow.getElementById("input-tags");
+    const colorPickerRow = shadow.getElementById("color-picker-row");
+    const btnSave = shadow.getElementById("btn-save");
+    const btnCancel = shadow.getElementById("btn-cancel");
+    const btnClose = shadow.getElementById("btn-close");
+    const errorBanner = shadow.getElementById("error-banner");
+    const successToast = shadow.getElementById("success-toast");
 
-    setupColorSwatches(colorPickerRow, selectedColor, (c) => (selectedColor = c));
+    setupColorSwatches(
+      colorPickerRow,
+      selectedColor,
+      (c) => (selectedColor = c),
+    );
+
+    setupTagSuggestions(inputTags, knownTags);
 
     // Auto focus body
     setTimeout(() => {
@@ -697,20 +902,20 @@
       const tags = inputTags.value.trim();
 
       if (!t) {
-        showError('Please enter a note title.');
-        inputTitle.classList.add('error');
+        showError("Please enter a note title.");
+        inputTitle.classList.add("error");
         inputTitle.focus();
         return;
       }
       if (!b) {
-        showError('Please enter the note body.');
-        inputBody.classList.add('error');
+        showError("Please enter the note body.");
+        inputBody.classList.add("error");
         inputBody.focus();
         return;
       }
 
       btnSave.disabled = true;
-      btnSave.textContent = 'Saving...';
+      btnSave.textContent = "Saving...";
 
       try {
         await VocabStorage.saveNote({
@@ -719,86 +924,94 @@
           color: selectedColor,
           tags: tags,
           sourceUrl: pageUrl,
-          sourceTitle: pageTitle
+          sourceTitle: pageTitle,
         });
 
-        successToast.style.display = 'flex';
+        successToast.style.display = "flex";
         setTimeout(() => {
           closeModal();
         }, 500);
       } catch (err) {
-        showError(err.message || 'Failed to save note.');
+        showError(err.message || "Failed to save note.");
         btnSave.disabled = false;
-        btnSave.textContent = 'Save Note';
+        btnSave.textContent = "Save Note";
       }
     };
 
     function showError(msg) {
       errorBanner.textContent = msg;
-      errorBanner.style.display = 'block';
+      errorBanner.style.display = "block";
     }
 
     function clearErrors() {
-      errorBanner.style.display = 'none';
-      inputTitle.classList.remove('error');
-      inputBody.classList.remove('error');
+      errorBanner.style.display = "none";
+      inputTitle.classList.remove("error");
+      inputBody.classList.remove("error");
     }
 
-    inputTitle.addEventListener('input', clearErrors);
-    inputBody.addEventListener('input', clearErrors);
+    inputTitle.addEventListener("input", clearErrors);
+    inputBody.addEventListener("input", clearErrors);
 
-    btnSave.addEventListener('click', handleSave);
-    btnCancel.addEventListener('click', closeModal);
-    btnClose.addEventListener('click', closeModal);
+    btnSave.addEventListener("click", handleSave);
+    btnCancel.addEventListener("click", closeModal);
+    btnClose.addEventListener("click", closeModal);
 
-    container.addEventListener('click', (e) => {
+    container.addEventListener("click", (e) => {
       if (e.target === container) closeModal();
     });
 
     const keyHandler = (e) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         closeModal();
-      } else if (e.key === 'Enter') {
-        if (e.ctrlKey || e.metaKey || (e.target === inputTitle && !e.shiftKey) || e.target === inputTags) {
+      } else if (e.key === "Enter") {
+        if (
+          e.ctrlKey ||
+          e.metaKey ||
+          (e.target === inputTitle && !e.shiftKey) ||
+          e.target === inputTags
+        ) {
           e.preventDefault();
           handleSave();
         }
       }
     };
 
-    container.addEventListener('keydown', keyHandler);
+    container.addEventListener("keydown", keyHandler);
   }
 
   function escapeHtml(str) {
-    if (!str) return '';
+    if (!str) return "";
     return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   /**
    * Listen for messages from background script (cross-browser)
    */
-  const extAPI = (typeof browser !== 'undefined' && browser && browser.runtime) ? browser : chrome;
+  const extAPI =
+    typeof browser !== "undefined" && browser && browser.runtime
+      ? browser
+      : chrome;
   if (extAPI && extAPI.runtime && extAPI.runtime.onMessage) {
     extAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
-      if (request.action === 'OPEN_SAVE_WORD_MODAL') {
+      if (request.action === "OPEN_SAVE_WORD_MODAL") {
         openSaveWordModal({
           word: request.word,
           pageUrl: request.pageUrl,
-          pageTitle: request.pageTitle
+          pageTitle: request.pageTitle,
         });
-        sendResponse({ status: 'OK' });
-      } else if (request.action === 'OPEN_SAVE_NOTE_MODAL') {
+        sendResponse({ status: "OK" });
+      } else if (request.action === "OPEN_SAVE_NOTE_MODAL") {
         openSaveNoteModal({
           title: request.title,
           pageUrl: request.pageUrl,
-          pageTitle: request.pageTitle
+          pageTitle: request.pageTitle,
         });
-        sendResponse({ status: 'OK' });
+        sendResponse({ status: "OK" });
       }
       return true;
     });
