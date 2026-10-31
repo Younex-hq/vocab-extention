@@ -77,6 +77,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const definitionInput = document.getElementById("definition-input");
   const wordTagsInput = document.getElementById("word-tags-input");
   const wordSourceUrl = document.getElementById("word-source-url");
+  const wordDuplicateWarning = document.getElementById(
+    "word-duplicate-warning",
+  );
   const btnCancelAddWord = document.getElementById("btn-cancel-add-word");
   const addWordColorPicker = document.getElementById("add-word-color-picker");
 
@@ -86,6 +89,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const noteBodyInput = document.getElementById("note-body-input");
   const noteTagsInput = document.getElementById("note-tags-input");
   const noteSourceUrl = document.getElementById("note-source-url");
+  const noteDuplicateWarning = document.getElementById(
+    "note-duplicate-warning",
+  );
   const btnCancelAddNote = document.getElementById("btn-cancel-add-note");
   const addNoteColorPicker = document.getElementById("add-note-color-picker");
 
@@ -312,6 +318,55 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // -------------------------------------------------------------
+  // DUPLICATE DETECTION (words & notes)
+  // -------------------------------------------------------------
+
+  /**
+   * Shows/hides an inline duplicate warning and returns true when a match exists.
+   */
+  function applyDuplicateWarning(input, warningEl, existing, message) {
+    if (existing) {
+      warningEl.textContent = "⚠ " + message;
+      warningEl.style.display = "block";
+      input.classList.add("has-warning");
+      return true;
+    }
+    warningEl.textContent = "";
+    warningEl.style.display = "none";
+    input.classList.remove("has-warning");
+    return false;
+  }
+
+  function checkWordDuplicate() {
+    const key = VocabStorage.normalizeTerm(wordInput.value);
+    const existing = key
+      ? cachedWords.find((w) => VocabStorage.normalizeTerm(w.word) === key)
+      : null;
+    return applyDuplicateWarning(
+      wordInput,
+      wordDuplicateWarning,
+      existing,
+      `"${existing ? existing.word : ""}" is already saved.`,
+    );
+  }
+
+  function checkNoteDuplicate() {
+    const key = VocabStorage.normalizeTerm(noteTitleInput.value);
+    const existing = key
+      ? cachedNotes.find((n) => VocabStorage.normalizeTerm(n.title) === key)
+      : null;
+    return applyDuplicateWarning(
+      noteTitleInput,
+      noteDuplicateWarning,
+      existing,
+      `A note titled "${existing ? existing.title : ""}" already exists.`,
+    );
+  }
+
+  wordInput.addEventListener("input", checkWordDuplicate);
+  noteTitleInput.addEventListener("input", checkNoteDuplicate);
+
+  // -------------------------------------------------------------
   // SETTINGS MODAL (Feature: configurable default view)
   // -------------------------------------------------------------
 
@@ -406,10 +461,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!targetInput) return;
 
     const selectedText = await getSelectedText();
-    if (!selectedText) return;
-    targetInput.value = selectedText;
-    targetInput.focus();
-    targetInput.select();
+    if (selectedText) {
+      targetInput.value = selectedText;
+      targetInput.focus();
+      targetInput.select();
+    }
+
+    // Flag it immediately if the pre-filled value is already saved
+    if (defaultView === "view-add-word") checkWordDuplicate();
+    else checkNoteDuplicate();
   }
 
   /**
@@ -1072,6 +1132,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
+    if (checkWordDuplicate()) {
+      showToast("⚠ This word is already saved");
+      return;
+    }
+
     try {
       await VocabStorage.saveWord({
         word,
@@ -1086,6 +1151,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       translationInput.value = "";
       definitionInput.value = "";
       wordTagsInput.value = "";
+      checkWordDuplicate();
       addWordColor = "none";
       renderColorPicker(
         addWordColorPicker,
@@ -1121,6 +1187,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
+    if (checkNoteDuplicate()) {
+      showToast("⚠ A note with this title already exists");
+      return;
+    }
+
     try {
       await VocabStorage.saveNote({
         title,
@@ -1133,6 +1204,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       noteTitleInput.value = "";
       noteBodyInput.value = "";
       noteTagsInput.value = "";
+      checkNoteDuplicate();
       addNoteColor = "none";
       renderColorPicker(
         addNoteColorPicker,

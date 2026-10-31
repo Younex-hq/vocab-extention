@@ -308,6 +308,15 @@
       margin-top: 2px;
     }
 
+    /* Inline duplicate warning */
+    .vocab-field-warning {
+      font-size: 11px;
+      font-weight: 600;
+      color: #b91c1c;
+      margin-top: 2px;
+      display: none;
+    }
+
     /* Tag Auto-Suggestions Dropdown */
     .vocab-tag-suggestions {
       position: absolute;
@@ -441,6 +450,10 @@
     .vocab-modal.dark .vocab-tag-suggestion-item.active {
       background-color: #334155;
       color: #93c5fd;
+    }
+
+    .vocab-modal.dark .vocab-field-warning {
+      color: #fca5a5;
     }
   `;
 
@@ -615,6 +628,47 @@
   }
 
   /**
+   * Live duplicate warning for an input. `findFn` resolves to an existing item
+   * (or null) and `messageFn` builds the warning text from that item.
+   */
+  function setupDuplicateCheck(input, warningEl, findFn, messageFn) {
+    if (!input || !warningEl) return;
+
+    let timer = null;
+
+    const run = async () => {
+      const value = input.value.trim();
+      if (!value) {
+        warningEl.textContent = "";
+        warningEl.style.display = "none";
+        return;
+      }
+
+      let existing = null;
+      try {
+        existing = await findFn(value);
+      } catch {
+        existing = null;
+      }
+
+      if (existing) {
+        warningEl.textContent = "⚠ " + messageFn(existing);
+        warningEl.style.display = "block";
+      } else {
+        warningEl.textContent = "";
+        warningEl.style.display = "none";
+      }
+    };
+
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(run, 250);
+    });
+
+    run();
+  }
+
+  /**
    * Modal: Save Word
    */
   async function openSaveWordModal({ word, pageUrl, pageTitle }) {
@@ -644,6 +698,7 @@
           <div class="vocab-field">
             <label class="vocab-label">Word / Phrase <span class="vocab-required">*</span></label>
             <input type="text" class="vocab-input" id="input-word" value="${escapeHtml(word)}" />
+            <span class="vocab-field-warning" id="word-dup-warning"></span>
           </div>
 
           <div class="vocab-field">
@@ -710,6 +765,13 @@
 
     setupTagSuggestions(inputTags, knownTags);
 
+    setupDuplicateCheck(
+      inputWord,
+      shadow.getElementById("word-dup-warning"),
+      (value) => VocabStorage.findExistingWord(value),
+      (item) => `"${item.word}" is already saved.`,
+    );
+
     // Auto focus translation
     setTimeout(() => {
       inputTranslation.focus();
@@ -731,6 +793,14 @@
         showError("Please enter a translation.");
         inputTranslation.classList.add("error");
         inputTranslation.focus();
+        return;
+      }
+
+      const existingWord = await VocabStorage.findExistingWord(w);
+      if (existingWord) {
+        showError(`"${existingWord.word}" is already saved.`);
+        inputWord.classList.add("error");
+        inputWord.focus();
         return;
       }
 
@@ -831,6 +901,7 @@
           <div class="vocab-field">
             <label class="vocab-label">Note Title <span class="vocab-required">*</span></label>
             <input type="text" class="vocab-input" id="input-title" value="${escapeHtml(title)}" />
+            <span class="vocab-field-warning" id="note-dup-warning"></span>
           </div>
 
           <div class="vocab-field">
@@ -891,6 +962,13 @@
 
     setupTagSuggestions(inputTags, knownTags);
 
+    setupDuplicateCheck(
+      inputTitle,
+      shadow.getElementById("note-dup-warning"),
+      (value) => VocabStorage.findExistingNote(value),
+      (item) => `A note titled "${item.title}" already exists.`,
+    );
+
     // Auto focus body
     setTimeout(() => {
       inputBody.focus();
@@ -911,6 +989,14 @@
         showError("Please enter the note body.");
         inputBody.classList.add("error");
         inputBody.focus();
+        return;
+      }
+
+      const existingNote = await VocabStorage.findExistingNote(t);
+      if (existingNote) {
+        showError(`A note titled "${existingNote.title}" already exists.`);
+        inputTitle.classList.add("error");
+        inputTitle.focus();
         return;
       }
 

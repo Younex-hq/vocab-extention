@@ -86,6 +86,15 @@
   }
 
   /**
+   * Normalize a term for duplicate comparison (trim + case-insensitive).
+   */
+  function normalizeTerm(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase();
+  }
+
+  /**
    * Validate or default color
    */
   function sanitizeColor(color) {
@@ -233,6 +242,7 @@
     parseTags,
     getTagTokenContext,
     applyTagSelection,
+    normalizeTerm,
     sanitizeColor,
     extractDomain,
     parseCsv,
@@ -434,6 +444,33 @@
         (item.tags || []).forEach((tag) => set.add(String(tag).toLowerCase()));
       });
       return Array.from(set).sort();
+    },
+
+    // -------------------------------------------------------------
+    // DUPLICATE DETECTION
+    // -------------------------------------------------------------
+
+    /**
+     * Returns the existing word matching `word` (trim + case-insensitive),
+     * or null. Pass `list` to check against an in-memory array (e.g. the
+     * popup cache); otherwise storage is read.
+     */
+    async findExistingWord(word, list) {
+      const target = normalizeTerm(word);
+      if (!target) return null;
+      const words = Array.isArray(list) ? list : await this.getWords();
+      return words.find((w) => normalizeTerm(w.word) === target) || null;
+    },
+
+    /**
+     * Returns the existing note matching `title` (trim + case-insensitive),
+     * or null. Pass `list` to check against an in-memory array.
+     */
+    async findExistingNote(title, list) {
+      const target = normalizeTerm(title);
+      if (!target) return null;
+      const notes = Array.isArray(list) ? list : await this.getNotes();
+      return notes.find((n) => normalizeTerm(n.title) === target) || null;
     },
 
     // -------------------------------------------------------------

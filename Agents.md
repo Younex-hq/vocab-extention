@@ -43,6 +43,9 @@ This document serves as the persistent memory, architectural blueprint, and cont
 7. **Configurable Default View & Selection Prefill:**
    - A **Settings** modal (gear button `⚙︎` in the popup header) lets the user choose which view opens by default: `See Saves`, `Add Word`, or `Add Note`.
    - When an **Add** view is the default, the text the user has selected on the active page is pre-filled into the **Word** field (for words) or the **Title** field (for notes) and is fully selected, so it can be instantly replaced or kept. Fails silently on restricted/internal pages.
+8. **Duplicate Prevention:**
+   - While typing a word (in the popup add-word form or the in-page Save Word modal) or a note title (add-note form / Save Note modal), the input is compared case-insensitively against saved entries; a match shows an inline "already saved / already exists" warning and highlights the field.
+   - Submitting a duplicate is blocked with a toast/error message. Matches on trimmed, lower-cased `word` / `title` values.
 
 ---
 
@@ -181,6 +184,11 @@ interface NoteItem {
 - The popup **Settings** modal (`#settings-modal`, opened by `#btn-open-settings`) exposes a `#settings-default-view` `<select>`.
 - On startup, `applyStartupView()` switches to the configured view; if it is an Add view, `getSelectedText()` (via `chrome.scripting.executeScript` with a `func:` payload) reads the page selection and pre-fills + `.select()`s the target input.
 
+### Duplicate Prevention (`storage.js` + `popup.js` + `content.js`)
+
+- `storage.js` exposes `normalizeTerm(value)` (trim + lower-case) plus `findExistingWord(word, list)` / `findExistingNote(title, list)`; the optional `list` argument lets the popup reuse its in-memory cache while `content.js` reads storage directly.
+- `popup.js` `checkWordDuplicate()` / `checkNoteDuplicate()` run on every keystroke against `cachedWords` / `cachedNotes`, toggle the inline `.field-warning` + `.has-warning` state, and gate the submit handlers. `content.js` `setupDuplicateCheck()` provides the same live feedback (debounced) inside the Shadow DOM modals and the save handlers re-check before writing.
+
 ### Cross-Browser Architecture (Chrome & Firefox)
 
 - **Universal WebExtension Resolver:** Dynamically resolves `browser` (native Gecko API) or `chrome` (Chromium API) across background, content, popup, and storage scripts.
@@ -235,3 +243,4 @@ interface NoteItem {
 - **Configurable Default View + Selection Prefill:** Added the `vocab_default_view` storage key with `getDefaultView()` / `setDefaultView()`; added a Settings modal (gear button in the popup header) to choose the startup view. `applyStartupView()` now opens the configured view and, for Add views, pre-fills the page selection into the Word/Title field and fully selects it.
 - Updated `Agents.md` (Overview, File Structure, Implementation Details) accordingly.
 - **Context Menu Fix:** Made `setupContextMenus()` in `background.js` idempotent/serialized (an in-flight guard) so `onInstalled` and `onStartup` can never run `removeAll`/`create` concurrently; `create`/`removeAll` now consume `runtime.lastError`, eliminating the `Cannot create item with duplicate id vocab_save_word` unchecked error.
+- **Duplicate Prevention:** Added `normalizeTerm`, `findExistingWord`, and `findExistingNote` to `storage.js`; wired live inline warnings + submit blocking into the popup add-word/add-note forms and the in-page Save Word / Save Note modals (`field-warning` / `.vocab-field-warning`).

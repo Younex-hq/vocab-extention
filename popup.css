@@ -972,6 +972,20 @@ body {
   color: var(--accent-primary);
 }
 
+/* Inline Duplicate Warning */
+.field-warning {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--danger-primary);
+  line-height: 1.4;
+}
+
+.form-input.has-warning,
+.form-input.has-warning:focus {
+  border-color: var(--danger-primary);
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
+}
+
 /* Settings */
 .form-select {
   width: 100%;
